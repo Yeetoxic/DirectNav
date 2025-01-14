@@ -10,9 +10,9 @@ $config = json_decode(file_get_contents($configFile), true);
 // Handle configuration updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['port'])) {
     $newPort = intval($_POST['port']);
-    if ($newPort > 0 && $newPort <= 65535) { // Validate port range
+    if (filter_var($newPort, FILTER_VALIDATE_INT, ["options" => ["min_range" => 1, "max_range" => 65535]])) {
         $config['port'] = $newPort;
-        file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT)); // Save new port
+        file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT));
         $portUpdated = true;
     } else {
         $portError = "Invalid port. Please enter a number between 1 and 65535.";
@@ -28,12 +28,19 @@ $rootPath = realpath('.');
 $directoryName = basename($currentPath);
 
 // Prevent navigating outside the root directory
-if (strpos($currentPath, $rootPath) !== 0) {
+if ($currentPath === false || strpos($currentPath, $rootPath) !== 0) {
     $currentPath = $rootPath;
 }
 
 // Retrieve directory contents
-$files = scandir($currentPath);
+$files = is_readable($currentPath) ? scandir($currentPath) : [];
+
+// Load selected theme
+$theme = isset($_GET['theme']) ? $_GET['theme'] : (isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'default.css');
+setcookie('theme', $theme, time() + (10 * 365 * 24 * 60 * 60), "/");
+
+// Use the current theme directly in the <link> tag
+echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme) . '">';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -65,7 +72,6 @@ $files = scandir($currentPath);
             font-size: 1.2rem;
             text-align: center;
             border-radius: 8px 8px 0 0;
-            background-color: #007BFF;
             color: #fff;
         }
         .container {
@@ -190,11 +196,6 @@ $files = scandir($currentPath);
             border-top: 1px solid #444;
         }
     </style>
-    <?php
-    // Load selected theme
-    $theme = isset($_GET['theme']) ? $_GET['theme'] : 'default.css';
-    echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme) . '">';
-    ?>
 </head>
 <body>
     <div class="container">
@@ -203,7 +204,6 @@ $files = scandir($currentPath);
                 <label for="theme">Select Theme:</label>
                 <select name="theme" id="theme" onchange="this.form.submit()">
                     <?php
-                    // Scan the themes directory and list CSS files
                     $themeDir = 'zDirectNav/themes';
                     if (is_dir($themeDir)) {
                         $themeFiles = array_filter(scandir($themeDir), function ($file) use ($themeDir) {
@@ -216,25 +216,15 @@ $files = scandir($currentPath);
                         }
                     }
                     ?>
-                    <?php
-                    // Preserve the current path in the theme selection form
-                    if (isset($_GET['path'])) {
-                        echo '<input type="hidden" name="path" value="' . htmlspecialchars($_GET['path']) . '">';
-                    }
-                    ?>
+                    <?php if (isset($_GET['path'])) { ?>
+                        <input type="hidden" name="path" value="<?php echo htmlspecialchars($_GET['path']); ?>">
+                    <?php } ?>
                 </select>
             </form>
-            Directory Listing for "<?php
-            if ($directoryName == 'html') {
-                echo "root";
-            } else {
-                echo htmlspecialchars($directoryName);
-            }
-            ?>"
+            Directory Listing for "<?php echo ($directoryName === 'html' ? 'root' : htmlspecialchars($directoryName)); ?>"
         </header>
         <div class="content">
             <?php
-            // Display Back Button
             if ($currentPath !== $rootPath) {
                 $parentPath = dirname($currentPath);
                 echo '<a href="?path=' . urlencode($parentPath) . '&theme=' . htmlspecialchars($theme) . '" class="back-button">← Back to Parent Directory</a>';
@@ -242,16 +232,10 @@ $files = scandir($currentPath);
                 echo '<p>You are at the root directory.</p>';
             }
 
-            // Directory information
-            $files = scandir($currentPath);
-            $totalFiles = 0;
-            $totalFolders = 0;
-            $totalSize = 0;
-
+            $totalFiles = $totalFolders = $totalSize = 0;
             foreach ($files as $file) {
-                if ($file === '.' || $file === '..') {
-                    continue;
-                }
+                if ($file === '.' || $file === '..') continue;
+
                 if (is_dir($currentPath . DIRECTORY_SEPARATOR . $file)) {
                     $totalFolders++;
                 } else {
@@ -265,27 +249,19 @@ $files = scandir($currentPath);
             echo '<p>Total Files: ' . $totalFiles . '</p>';
             echo '<p>Total Folders: ' . $totalFolders . '</p>';
             echo '<p>Total Size: ' . number_format($totalSize / 1024, 2) . ' KB</p>';
-            echo '</div>'
+            echo '</div>';
             ?>
             <ul>
                 <?php
                 foreach ($files as $file) {
-                    if ($file === '.' || $file === '..') {
-                        continue;
-                    }
+                    if ($file === '.' || $file === '..') continue;
 
-                    $relativePath = str_replace($rootPath, '', $currentPath . DIRECTORY_SEPARATOR . $file);
-                    $relativePath = ltrim($relativePath, DIRECTORY_SEPARATOR);
+                    $relativePath = ltrim(str_replace($rootPath, '', $currentPath . DIRECTORY_SEPARATOR . $file), DIRECTORY_SEPARATOR);
 
                     if (is_dir($currentPath . DIRECTORY_SEPARATOR . $file)) {
                         echo '<li onclick="location.href=\'?path=' . urlencode($currentPath . DIRECTORY_SEPARATOR . $file) . '&theme=' . htmlspecialchars($theme) . '\'">';
                         echo '<span class="icon folder">📁</span>';
                         echo '<span class="file-name">' . htmlspecialchars($file) . '</span>';
-                        echo '</li>';
-                    } elseif ($file === basename(__FILE__) && realpath($currentPath) === $rootPath) {
-                        echo '<li>';
-                        echo '<span class="icon file">📄</span>';
-                        echo '<span class="file-name">' . htmlspecialchars($file) . ' <span class="currently-open">(currently open)</span></span>';
                         echo '</li>';
                     } else {
                         echo '<li onclick="location.href=\'http://php84.local:' . htmlspecialchars($currentPort) . '/' . htmlspecialchars($relativePath) . '\'">';

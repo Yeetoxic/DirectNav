@@ -242,11 +242,30 @@ $files = scandir($currentPath);
                 echo '<p>You are at the root directory.</p>';
             }
 
+            // Directory information
+            $files = scandir($currentPath);
+            $totalFiles = 0;
+            $totalFolders = 0;
+            $totalSize = 0;
+
+            foreach ($files as $file) {
+                if ($file === '.' || $file === '..') {
+                    continue;
+                }
+                if (is_dir($currentPath . DIRECTORY_SEPARATOR . $file)) {
+                    $totalFolders++;
+                } else {
+                    $totalFiles++;
+                    $totalSize += filesize($currentPath . DIRECTORY_SEPARATOR . $file);
+                }
+            }
+
             echo '<div class="info">';
             echo '<p><strong>Current Directory:</strong> ' . htmlspecialchars($currentPath) . '</p>';
-            echo '<p>Total Files: ' . count(array_filter($files, fn($f) => !is_dir($currentPath . '/' . $f))) . '</p>';
-            echo '<p>Total Folders: ' . count(array_filter($files, fn($f) => is_dir($currentPath . '/' . $f))) . '</p>';
-            echo '</div>';
+            echo '<p>Total Files: ' . $totalFiles . '</p>';
+            echo '<p>Total Folders: ' . $totalFolders . '</p>';
+            echo '<p>Total Size: ' . number_format($totalSize / 1024, 2) . ' KB</p>';
+            echo '</div>'
             ?>
             <ul>
                 <?php

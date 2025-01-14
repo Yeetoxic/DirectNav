@@ -263,8 +263,13 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
                         echo '<span class="icon folder">📁</span>';
                         echo '<span class="file-name">' . htmlspecialchars($file) . '</span>';
                         echo '</li>';
+                    } elseif ($file === basename(__FILE__) && realpath($currentPath) === $rootPath) {
+                        echo '<li>';
+                        echo '<span class="icon file">📄</span>';
+                        echo '<span class="file-name">' . htmlspecialchars($file) . ' <span class="currently-open">(currently open)</span></span>';
+                        echo '</li>';
                     } else {
-                        echo '<li onclick="location.href=\'http://php84.local:' . htmlspecialchars($currentPort) . '/' . htmlspecialchars($relativePath) . '\'">';
+                        echo '<li onclick="location.href=\'/' . htmlspecialchars($relativePath) . '\'">';
                         echo '<span class="icon file">📄</span>';
                         echo '<span class="file-name">' . htmlspecialchars($file) . '</span>';
                         echo '</li>';

@@ -1,0 +1,40 @@
+body {
+    background: linear-gradient(135deg, #0f0f17, #1a1a1f);
+    color: #eaeaea;
+}
+header {
+    background: linear-gradient(135deg, #ff007a, #8700ff);
+    color: #fff;
+}
+.container {
+    background-color: #1a1a27;
+    border: 1px solid #444;
+}
+.info {
+    background-color: #222;
+    border: 1px solid #8700ff;
+    color: #bbb;
+}
+.back-button {
+    background: linear-gradient(135deg, #ff007a, #8700ff);
+}
+.back-button:hover {
+    background: linear-gradient(135deg, #ca0062, #6800c4);
+}
+ul li {
+    background-color: #222;
+    border: 1px solid #333;
+}
+ul li:hover {
+    background-color: #3e3e3e;
+}
+.icon.file {
+    color: #00ffff;
+}
+.icon.folder {
+    color: #ff007a;
+}
+footer {
+    background-color: #1a1a27;
+    color: #888;
+}

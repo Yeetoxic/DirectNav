@@ -1,0 +1,40 @@
+body {
+    background: linear-gradient(135deg, #2a0a0a, #3a1a1a);
+    color: #f0d1d1;
+}
+header {
+    background-color: #a81d1d;
+    color: #fff;
+}
+.container {
+    background-color: #3a1a1a;
+    border: 1px solid #5a2a2a;
+}
+.info {
+    background-color: #4a2a2a;
+    border: 1px solid #5a2a2a;
+    color: #f5c6c6;
+}
+.back-button {
+    background: #a81d1d;
+}
+.back-button:hover {
+    background: #801616;
+}
+ul li {
+    background-color: #4a2a2a;
+    border: 1px solid #5a2a2a;
+}
+ul li:hover {
+    background-color: #6a3a3a;
+}
+.icon.file {
+    color: #f3a869;
+}
+.icon.folder {
+    color: #f3ba73;
+}
+footer {
+    background-color: #2a0a0a;
+    color: #c7a2a2;
+}

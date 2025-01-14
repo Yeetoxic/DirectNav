@@ -1,0 +1,40 @@
+body {
+    background: linear-gradient(135deg, #1e1e2f, #1a1a27);
+    color: #cbd5e0;
+}
+header {
+    background-color: #394867;
+    color: #cbd5e0;
+}
+.container {
+    background-color: #2c2c3b;
+    border: 1px solid #444;
+}
+.info {
+    background-color: #2a2e38;
+    border: 1px solid #4e6e9b;
+    color: #a0aec0;
+}
+.back-button {
+    background: #394867;
+}
+.back-button:hover {
+    background: #293349;
+}
+ul li {
+    background-color: #343a40;
+    border: 1px solid #4e6e9b;
+}
+ul li:hover {
+    background-color: #3a4048;
+}
+.icon.file {
+    color: #90caf9;
+}
+.icon.folder {
+    color: #80deea;
+}
+footer {
+    background-color: #222;
+    color: #888;
+}

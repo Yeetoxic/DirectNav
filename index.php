@@ -117,10 +117,25 @@ $files = scandir($currentPath);
             border-radius: 4px;
             background-color: #333;
             transition: background-color 0.2s, transform 0.1s;
+            cursor: pointer;
         }
         li:hover {
             background-color: #3e3e3e;
             transform: scale(1.01);
+        }
+        li .file-name {
+            flex-grow: 1;
+            text-align: left;
+            color: #eaeaea;
+            text-decoration: none; /* Ensure no underline by default */
+        }
+        li:hover .file-name {
+            text-decoration: underline; /* Add underline on hover */
+        }
+
+        li .currently-open {
+            font-style: italic;
+            color: #888;
         }
         .icon {
             width: 20px;
@@ -136,6 +151,26 @@ $files = scandir($currentPath);
         }
         a:visited {
             color: #eaeaea; /* Prevent purple visited links */
+        }
+        a.clickable-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background-color: #333;
+            text-decoration: none;
+            color: #eaeaea;
+            border: 1px solid #444;
+            border-radius: 4px;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        a.clickable-item:hover {
+            background-color: #3e3e3e;
+            transform: scale(1.01);
+        }
+
+        a.clickable-item .icon {
+            margin-right: 10px;
         }
         .back-button {
             display: inline-block;
@@ -213,9 +248,8 @@ $files = scandir($currentPath);
             echo '<p>Total Folders: ' . count(array_filter($files, fn($f) => is_dir($currentPath . '/' . $f))) . '</p>';
             echo '</div>';
             ?>
-
             <ul>
-            <?php
+                <?php
                 foreach ($files as $file) {
                     if ($file === '.' || $file === '..') {
                         continue;
@@ -225,11 +259,20 @@ $files = scandir($currentPath);
                     $relativePath = ltrim($relativePath, DIRECTORY_SEPARATOR);
 
                     if (is_dir($currentPath . DIRECTORY_SEPARATOR . $file)) {
-                        echo '<li><span class="icon folder">📁</span><a href="?path=' . urlencode($currentPath . DIRECTORY_SEPARATOR . $file) . '&theme=' . htmlspecialchars($theme) . '">' . htmlspecialchars($file) . '</a></li>';
+                        echo '<li onclick="location.href=\'?path=' . urlencode($currentPath . DIRECTORY_SEPARATOR . $file) . '&theme=' . htmlspecialchars($theme) . '\'">';
+                        echo '<span class="icon folder">📁</span>';
+                        echo '<span class="file-name">' . htmlspecialchars($file) . '</span>';
+                        echo '</li>';
                     } elseif ($file === basename(__FILE__) && realpath($currentPath) === $rootPath) {
-                        echo '<li><span class="icon file">📄</span>' . htmlspecialchars($file) . ' <span class="currently-open">(currently open)</span></li>';
+                        echo '<li>';
+                        echo '<span class="icon file">📄</span>';
+                        echo '<span class="file-name">' . htmlspecialchars($file) . ' <span class="currently-open">(currently open)</span></span>';
+                        echo '</li>';
                     } else {
-                        echo '<li><span class="icon file">📄</span><a href="http://php84.local:9000/' . htmlspecialchars($relativePath) . '">' . htmlspecialchars($file) . '</a></li>';
+                        echo '<li onclick="location.href=\'http://php84.local:' . htmlspecialchars($currentPort) . '/' . htmlspecialchars($relativePath) . '\'">';
+                        echo '<span class="icon file">📄</span>';
+                        echo '<span class="file-name">' . htmlspecialchars($file) . '</span>';
+                        echo '</li>';
                     }
                 }
                 ?>

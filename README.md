@@ -58,43 +58,46 @@
    body {
     background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
     color: #eaeaea;
-    }
-    header {
-        background-color: #007BFF;
-        color: #fff;
-    }
-    .container {
-        background-color: #2a2a2a;
-        border: 1px solid #444;
-    }
-    .info {
-        background-color: #333;
-        border: 1px solid #444;
-        color: #bbb;
-    }
-    .back-button {
-        background: #007BFF;
-    }
-    .back-button:hover {
-        background: #0056b3;
-    }
-    ul li {
-        background-color: #333;
-        border: 1px solid #444;
-    }
-    ul li:hover {
-        background-color: #3e3e3e;
-    }
-    .icon.file {
-        color: #61dafb;
-    }
-    .icon.folder {
-        color: #f0c674;
-    }
-    footer {
-        background-color: #222;
-        color: #777;
-    }
+      }
+      header {
+          background-color: #333;
+          color: #fff;
+      }
+      .container {
+          background-color: #2a2a2a;
+          border: 1px solid #444;
+      }
+      .info {
+          background-color: #333;
+          border: 1px solid #b30e0e;
+          color: #bbb;
+      }
+      .back-button {
+          background: #333;
+          border: 1px solid #b30e0e;
+      }
+      .back-button:hover {
+          background: #3e3e3e;
+          border: 1px solid #b30e0e;
+      }
+      ul li {
+          background-color: #333;
+          border: 1px solid #444;
+      }
+      ul li:hover {
+          background-color: #3e3e3e;
+          border: 1px solid #b30e0e;
+      }
+      .icon.file {
+          color: #61dafb;
+      }
+      .icon.folder {
+          color: #f0c674;
+      }
+      footer {
+          background-color: #222;
+          color: #777;
+      }
    ```
 3. Refresh the page to see the new theme listed in the dropdown menu.
 

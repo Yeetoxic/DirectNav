@@ -1,12 +1,11 @@
 # DirectNav - Lightweight Directory Navigation Tool
 ## A Directory Navigator for ITAS 186
 
-**DirectNav** is a simple and customizable PHP-based directory navigation tool. It allows users to browse directories, switch themes, and configure settings such as the server port.
+**DirectNav** is a simple and customizable PHP-based directory navigation tool. It allows users to browse directories with switchable themes.
 
 ## Features
 - Dynamic directory listing with folder and file distinctions.
 - Customizable themes to change the visual appearance.
-- Configurable port settings via a user-friendly interface.
 - Supports clickable, fully interactive directory boxes.
 
 ---
@@ -16,7 +15,7 @@
 /var/www/html/
 ├── index.php
 ├── zDirectNav/
-│   ├── config.json         # Stores port configuration
+│   ├── config.json         # Stores port configuration  (DEPRECIATED)
 │   ├── themes/             # Folder for custom CSS themes
 │       ├── default.css
 │       ├── midnight.css
@@ -46,8 +45,8 @@
 4. **Access the Tool**
    - Open your browser and navigate to the server hosting the tool, e.g., `http://localhost/index.php`.
 
-5. **Change the Port**
-   - Use the "Configuration" section to update the server port dynamically. The new port will be saved in `config.json`.
+5. ~~**Change the Port**~~
+   - ~~Use the "Configuration" section to update the server port dynamically. The new port will be saved in `config.json`.~~
 
 ---
 
@@ -104,8 +103,8 @@
 ---
 
 ## Troubleshooting
-1. **Port Update Issues**
-   - Ensure the `config.json` file is writable by the server.
+1. ~~**Port Update Issues**~~
+   - ~~Ensure the `config.json` file is writable by the server.~~
    - Check PHP error logs for details.
 
 2. **Theme Not Showing**
@@ -122,4 +121,5 @@ This project is open-source and available for use and modification under the [MI
 
 ---
 
+## Additions / Commits
 If you'd like to add a feature / theme, feel free to fork & request a push to the main branch!

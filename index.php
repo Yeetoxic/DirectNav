@@ -1,27 +1,4 @@
 <?php
-// Load configuration
-$configFile = 'zDirectNav/config.json';
-if (!file_exists($configFile)) {
-    // Default configuration if file doesn't exist
-    file_put_contents($configFile, json_encode(['port' => 9000], JSON_PRETTY_PRINT));
-}
-$config = json_decode(file_get_contents($configFile), true);
-
-// Handle configuration updates
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['port'])) {
-    $newPort = intval($_POST['port']);
-    if (filter_var($newPort, FILTER_VALIDATE_INT, ["options" => ["min_range" => 1, "max_range" => 65535]])) {
-        $config['port'] = $newPort;
-        file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT));
-        $portUpdated = true;
-    } else {
-        $portError = "Invalid port. Please enter a number between 1 and 65535.";
-    }
-}
-
-// Current port
-$currentPort = $config['port'];
-
 // Determine current directory path
 $currentPath = isset($_GET['path']) ? realpath($_GET['path']) : realpath('.');
 $rootPath = realpath('.');
@@ -69,9 +46,14 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
         }
         header {
             padding: 15px 20px;
-            font-size: 1.2rem;
-            text-align: center;
             border-radius: 8px 8px 0 0;
+            font-size: 1.2rem;
+            text-align: left;
+            color: #fff;
+        }
+        .header-text{
+            font-size: 1.2rem;
+            text-align: left;
             color: #fff;
         }
         .container {
@@ -94,6 +76,13 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
             border-radius: 4px;
             font-size: 0.9rem;
             background-color: #333;
+            color: #bbb;
+        }
+        .header-info {
+            margin-bottom: 5px;
+            padding: 1px;
+            border-radius: 4px;
+            font-size: 0.9rem;
             color: #bbb;
         }
         ul {
@@ -180,7 +169,8 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
         }
         .back-button {
             display: inline-block;
-            margin-bottom: 20px;
+            font-size: 0.8rem;
+            margin-bottom: 5px;
             padding: 8px 12px;
             color: #fff;
             border-radius: 4px;
@@ -188,7 +178,7 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
             transition: background-color 0.2s;
         }
         footer {
-            text-align: center;
+            text-align: right;
             padding: 10px;
             font-size: 0.8rem;
             background-color: #222;
@@ -221,17 +211,18 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
                     <?php } ?>
                 </select>
             </form>
-            Directory Listing for "<?php echo ($directoryName === 'html' ? 'root' : htmlspecialchars($directoryName)); ?>"
+            <p class="header-text"><b>Directory Listing for "<?php echo ($directoryName === 'html' ? 'root' : htmlspecialchars($directoryName)); ?>"</b><br><p>
+            <?php 
+                if ($currentPath !== $rootPath) {
+                    $parentPath = dirname($currentPath);
+                    echo '<a href="?path=' . urlencode($parentPath) . '&theme=' . htmlspecialchars($theme) . '" class="back-button">← Back to Parent Directory</a>';
+                } else {
+                    echo '<p class="header-info"><i>You are at the root directory.</i></p>';
+                }
+            ?>
         </header>
         <div class="content">
             <?php
-            if ($currentPath !== $rootPath) {
-                $parentPath = dirname($currentPath);
-                echo '<a href="?path=' . urlencode($parentPath) . '&theme=' . htmlspecialchars($theme) . '" class="back-button">← Back to Parent Directory</a>';
-            } else {
-                echo '<p>You are at the root directory.</p>';
-            }
-
             $totalFiles = $totalFolders = $totalSize = 0;
             foreach ($files as $file) {
                 if ($file === '.' || $file === '..') continue;
@@ -278,24 +269,8 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
                 ?>
             </ul>
         </div>
-        <div class="content">
-            <h2>Configuration</h2>
-            <form method="POST">
-                <label for="port">Change Port:</label>
-                <input type="number" id="port" name="port" value="<?php echo htmlspecialchars($currentPort); ?>" required>
-                <button type="submit">Save Port</button>
-            </form>
-            <?php
-            if (isset($portUpdated) && $portUpdated) {
-                echo '<p class="success-message">Port updated successfully to ' . htmlspecialchars($currentPort) . '!</p>';
-            }
-            if (isset($portError)) {
-                echo '<p class="error-message" style="color: red;">' . htmlspecialchars($portError) . '</p>';
-            }
-            ?>
-        </div>
         <footer>
-            &copy; <?php echo date('Y'); ?> Danil Vilmont
+            Interactive File Organization Interface &copy; Danil Vilmont <?php echo date('Y'); ?>
         </footer>
     </div>
 </body>

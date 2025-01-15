@@ -3,7 +3,7 @@ body {
     color: #eaeaea;
 }
 header {
-    background-color: #007BFF;
+    background-color: #333;
     color: #fff;
 }
 .container {
@@ -12,14 +12,16 @@ header {
 }
 .info {
     background-color: #333;
-    border: 1px solid #444;
+    border: 1px solid #b30e0e;
     color: #bbb;
 }
 .back-button {
-    background: #007BFF;
+    background: #333;
+    border: 1px solid #b30e0e;
 }
 .back-button:hover {
-    background: #0056b3;
+    background: #3e3e3e;
+    border: 1px solid #b30e0e;
 }
 ul li {
     background-color: #333;
@@ -27,6 +29,7 @@ ul li {
 }
 ul li:hover {
     background-color: #3e3e3e;
+    border: 1px solid #b30e0e;
 }
 .icon.file {
     color: #61dafb;

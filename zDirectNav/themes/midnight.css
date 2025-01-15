@@ -17,9 +17,11 @@ header {
 }
 .back-button {
     background: #394867;
+    border: 1px solid #a0aec0;
 }
 .back-button:hover {
     background: #293349;
+    border: 1px solid #a0aec0;
 }
 ul li {
     background-color: #343a40;

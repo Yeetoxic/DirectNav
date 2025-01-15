@@ -17,9 +17,11 @@ header {
 }
 .back-button {
     background: linear-gradient(135deg, #ff007a, #8700ff);
+    border: 1px solid #bdbdbd;
 }
 .back-button:hover {
     background: linear-gradient(135deg, #ca0062, #6800c4);
+    border: 1px solid #bdbdbd;
 }
 ul li {
     background-color: #222;

@@ -16,8 +16,98 @@ $files = is_readable($currentPath) ? scandir($currentPath) : [];
 $theme = isset($_GET['theme']) ? $_GET['theme'] : (isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'default.css');
 setcookie('theme', $theme, time() + (10 * 365 * 24 * 60 * 60), "/");
 
+
+// Calculate file/folder sizes
+ // Asynchronous Directory Size Calculation
+ if (isset($_GET['action']) && $_GET['action'] === 'calculateDirectorySize') {
+    header('Content-Type: application/json');
+
+    function getDirectorySize($dir, &$totalFiles, &$totalFolders) {
+        $size = 0;
+        $queue = [$dir];
+    
+        while ($queue) {
+            $currentDir = array_pop($queue);
+            $files = scandir($currentDir);
+    
+            foreach ($files as $file) {
+                if ($file === '.' || $file === '..') continue;
+    
+                $filePath = $currentDir . DIRECTORY_SEPARATOR . $file;
+    
+                if (is_file($filePath)) {
+                    $size += filesize($filePath);
+                    $totalFiles++;
+                } elseif (is_dir($filePath)) {
+                    $totalFolders++;
+                    $queue[] = $filePath; // Add to queue for further processing
+                }
+            }
+        }
+    
+        return $size;
+    }    
+
+    $totalFiles = 0;
+    $totalFolders = 0;
+
+    if ($currentPath && strpos($currentPath, $rootPath) === 0) {
+        $totalSize = getDirectorySize($currentPath, $totalFiles, $totalFolders);
+    
+        function formatSize($size) {
+            $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+            $index = 0;
+    
+            while ($size >= 1024 && $index < count($units) - 1) {
+                $size /= 1024;
+                $index++;
+            }
+    
+            return number_format($size, 2) . ' ' . $units[$index];
+        }
+    
+        echo json_encode([
+            'totalFiles' => $totalFiles,
+            'totalFolders' => $totalFolders,
+            'totalSize' => formatSize($totalSize),
+        ]);
+    } else {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid directory path']);
+    }
+    exit;    
+}
+
+
+// Full File structure stuff
+if (isset($_GET['showStructure'])) {
+    function generateFullStructure($dir, $indent = 0) {
+        $output = '';
+        $files = scandir($dir);
+
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') continue;
+
+            $filePath = $dir . DIRECTORY_SEPARATOR . $file;
+            $prefix = str_repeat('  ', $indent); // Indentation for nested levels
+
+            if (is_dir($filePath)) {
+                $output .= $prefix . "📁 " . $file . "\n";
+                $output .= generateFullStructure($filePath, $indent + 1); // Recursively add subdirectories
+            } elseif (is_file($filePath)) {
+                $output .= $prefix . "📄 " . $file . "\n";
+            }
+        }
+
+        return $output;
+    }
+
+    echo generateFullStructure($currentPath); // Generate structure starting from $currentPath
+    exit;
+} else {
 // Use the current theme directly in the <link> tag
 echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme) . '">';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -185,6 +275,7 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
             color: #777;
             border-top: 1px solid #444;
         }
+
     </style>
 </head>
 <body>
@@ -221,47 +312,91 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
                 }
             ?>
         </header>
+
+
         <div class="content">
-            <?php
-            function getDirectorySize($dir, &$totalFiles, &$totalFolders) {
-                $size = 0;
-                $files = scandir($dir);
-            
-                foreach ($files as $file) {
-                    if ($file === '.' || $file === '..') continue;
-            
-                    $filePath = $dir . DIRECTORY_SEPARATOR . $file;
-            
-                    if (is_file($filePath)) {
-                        $size += filesize($filePath);
-                        $totalFiles++; // Increment file count
-                    } elseif (is_dir($filePath)) {
-                        $totalFolders++; // Increment folder count
-                        $size += getDirectorySize($filePath, $totalFiles, $totalFolders); // Recursively calculate directory size
-                    }
-                }
-            
-                return $size;
+        <?php
+            // Determine current directory path
+            $currentPath = isset($_GET['path']) ? realpath($_GET['path']) : realpath('.');
+            $rootPath = realpath('.');
+            $directoryName = basename($currentPath);
+
+            // Prevent navigating outside the root directory
+            if ($currentPath === false || strpos($currentPath, $rootPath) !== 0) {
+                $currentPath = $rootPath;
             }
-            
-            // Initialize counters
-            $totalFiles = 0;
-            $totalFolders = 0;
-            
-            // Get total size and update file/folder counts
-            $totalSize = getDirectorySize($currentPath, $totalFiles, $totalFolders);
-            
-            // Convert total size to KB
-            $totalSizeKB = number_format($totalSize / 1024, 2);
-            
-            // Display information
-            echo '<div class="info">';
-            echo '<p><strong>Current Directory:</strong> ' . htmlspecialchars($currentPath) . '</p>';
-            echo '<p>Total Files: ' . $totalFiles . '</p>';
-            echo '<p>Total Folders: ' . $totalFolders . '</p>';
-            echo '<p>Total Size: ' . $totalSizeKB . ' KB</p>';
-            echo '</div>';                        
             ?>
+            <div class="info">
+            <p><strong>Current Directory:</strong> <?php echo htmlspecialchars($currentPath); ?></p>
+            <p>Total Files: <span id="totalFiles">Calculating...</span></p>
+            <p>Total Folders: <span id="totalFolders">Calculating...</span></p>
+            <p>Total Size: <span id="totalSize">Calculating...</span></p>
+            <button id="toggleStructure">Show File Structure</button>
+            </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', async () => {
+                    const currentPath = (new URLSearchParams(window.location.search)).get('path') || '.';
+
+                    try {
+                        const response = await fetch(`index.php?action=calculateDirectorySize&path=${encodeURIComponent(currentPath)}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            document.getElementById('totalFiles').textContent = data.totalFiles;
+                            document.getElementById('totalFolders').textContent = data.totalFolders;
+                            document.getElementById('totalSize').textContent = data.totalSize;
+                        } else {
+                            document.getElementById('totalFiles').textContent = 'Error';
+                            document.getElementById('totalFolders').textContent = 'Error';
+                            document.getElementById('totalSize').textContent = 'Error';
+                            console.error('Failed to fetch directory size:', await response.text());
+                        }
+                    } catch (error) {
+                        document.getElementById('totalFiles').textContent = 'Error';
+                        document.getElementById('totalFolders').textContent = 'Error';
+                        document.getElementById('totalSize').textContent = 'Error';
+                        console.error('Error fetching directory size:', error);
+                    }
+                });
+            </script>
+
+
+            <div id="fileStructure" style="display: none; margin-top: 20px; background: #333; padding: 10px; border-radius: 8px; color: #eee;">
+                <h4>Full File Structure:</h4>
+                <pre id="structureContent"></pre>
+            </div>
+
+            <script>
+                document.getElementById('toggleStructure').addEventListener('click', function () {
+                    const fileStructureDiv = document.getElementById('fileStructure');
+                    const structureContent = document.getElementById('structureContent');
+                    const button = this;
+
+                    if (fileStructureDiv.style.display === 'none') {
+                        // Show file structure
+                        button.textContent = 'Hide File Structure';
+                        if (!structureContent.textContent.trim()) {
+                            // Fetch only if not already loaded
+                            // const queryString = window.location.search;
+                            // const urlParams = new URLSearchParams(queryString);
+                            // const currentPath = urlParams.get('path');
+                            const currentPath = (new URLSearchParams(window.location.search)).get('path');
+                            fetch('index.php?showStructure=1&path='+currentPath)
+                                .then(response => response.text())
+                                .then(data => {
+                                    structureContent.textContent = data;
+                                    fileStructureDiv.style.display = 'block';
+                                })
+                                .catch(error => console.error('Error fetching file structure:', error));
+                        } else {
+                            fileStructureDiv.style.display = 'block';
+                        }
+                    } else {
+                        // Hide file structure
+                        button.textContent = 'Show File Structure';
+                        fileStructureDiv.style.display = 'none';
+                    }
+                });
+            </script>
             <ul>
                 <?php
                 foreach ($files as $file) {

@@ -223,24 +223,44 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
         </header>
         <div class="content">
             <?php
-            $totalFiles = $totalFolders = $totalSize = 0;
-            foreach ($files as $file) {
-                if ($file === '.' || $file === '..') continue;
-
-                if (is_dir($currentPath . DIRECTORY_SEPARATOR . $file)) {
-                    $totalFolders++;
-                } else {
-                    $totalFiles++;
-                    $totalSize += filesize($currentPath . DIRECTORY_SEPARATOR . $file);
+            function getDirectorySize($dir, &$totalFiles, &$totalFolders) {
+                $size = 0;
+                $files = scandir($dir);
+            
+                foreach ($files as $file) {
+                    if ($file === '.' || $file === '..') continue;
+            
+                    $filePath = $dir . DIRECTORY_SEPARATOR . $file;
+            
+                    if (is_file($filePath)) {
+                        $size += filesize($filePath);
+                        $totalFiles++; // Increment file count
+                    } elseif (is_dir($filePath)) {
+                        $totalFolders++; // Increment folder count
+                        $size += getDirectorySize($filePath, $totalFiles, $totalFolders); // Recursively calculate directory size
+                    }
                 }
+            
+                return $size;
             }
-
+            
+            // Initialize counters
+            $totalFiles = 0;
+            $totalFolders = 0;
+            
+            // Get total size and update file/folder counts
+            $totalSize = getDirectorySize($currentPath, $totalFiles, $totalFolders);
+            
+            // Convert total size to KB
+            $totalSizeKB = number_format($totalSize / 1024, 2);
+            
+            // Display information
             echo '<div class="info">';
             echo '<p><strong>Current Directory:</strong> ' . htmlspecialchars($currentPath) . '</p>';
             echo '<p>Total Files: ' . $totalFiles . '</p>';
             echo '<p>Total Folders: ' . $totalFolders . '</p>';
-            echo '<p>Total Size: ' . number_format($totalSize / 1024, 2) . ' KB</p>';
-            echo '</div>';
+            echo '<p>Total Size: ' . $totalSizeKB . ' KB</p>';
+            echo '</div>';                        
             ?>
             <ul>
                 <?php

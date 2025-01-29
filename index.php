@@ -20,69 +20,92 @@ setcookie('theme', $theme, time() + (10 * 365 * 24 * 60 * 60), "/");
 // Calculate file/folder sizes
  // Asynchronous Directory Size Calculation
  if (isset($_GET['action']) && $_GET['action'] === 'calculateDirectorySize') {
-    header('Content-Type: application/json');
+    header('Content-Type: text/event-stream');
+    header('Cache-Control: no-cache');
+    header('Connection: keep-alive');
 
-    function getDirectorySize($dir, &$totalFiles, &$totalFolders) {
+    function streamUpdate($data) {
+        echo "data: " . json_encode($data) . "\n\n";
+        ob_flush();
+        flush();
+    }
+
+    function getDirectorySize($dir) {
         $size = 0;
+        $totalFiles = 0;
+        $totalFolders = 0;
         $queue = [$dir];
-    
+
         while ($queue) {
             $currentDir = array_pop($queue);
             $files = scandir($currentDir);
-    
+
             foreach ($files as $file) {
                 if ($file === '.' || $file === '..') continue;
-    
+
                 $filePath = $currentDir . DIRECTORY_SEPARATOR . $file;
-    
+
                 if (is_file($filePath)) {
                     $size += filesize($filePath);
                     $totalFiles++;
                 } elseif (is_dir($filePath)) {
                     $totalFolders++;
-                    $queue[] = $filePath; // Add to queue for further processing
+                    $queue[] = $filePath;
                 }
+
+                // Stream updates to the client
+                streamUpdate([
+                    'totalFiles' => $totalFiles,
+                    'totalFolders' => $totalFolders,
+                    'totalSize' => $size,
+                ]);
             }
         }
-    
-        return $size;
-    }    
 
-    $totalFiles = 0;
-    $totalFolders = 0;
+        return ['totalSize' => $size, 'totalFiles' => $totalFiles, 'totalFolders' => $totalFolders];
+    }
+
+    $currentPath = realpath($_GET['path'] ?? '.');
+    $rootPath = realpath('.');
 
     if ($currentPath && strpos($currentPath, $rootPath) === 0) {
-        $totalSize = getDirectorySize($currentPath, $totalFiles, $totalFolders);
-    
-        function formatSize($size) {
-            $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
-            $index = 0;
-    
-            while ($size >= 1024 && $index < count($units) - 1) {
-                $size /= 1024;
-                $index++;
-            }
-    
-            return number_format($size, 2) . ' ' . $units[$index];
-        }
-    
-        echo json_encode([
-            'totalFiles' => $totalFiles,
-            'totalFolders' => $totalFolders,
-            'totalSize' => formatSize($totalSize),
+        $result = getDirectorySize($currentPath);
+
+        // Send a final message and close the connection
+        streamUpdate([
+            'totalFiles' => $result['totalFiles'],
+            'totalFolders' => $result['totalFolders'],
+            'totalSize' => $result['totalSize'],
+            'complete' => true, // Indicate the process is complete
         ]);
+
+        // Close the connection
+        echo "event: close\n"; // Optional event to signal closure
+        echo "data: {}\n\n";
+        ob_flush();
+        flush();
     } else {
-        http_response_code(400);
-        echo json_encode(['error' => 'Invalid directory path']);
+        streamUpdate(['error' => 'Invalid directory path']);
     }
-    exit;    
+    exit;
 }
 
 
+
+
 // Full File structure stuff
-if (isset($_GET['showStructure'])) {
-    function generateFullStructure($dir, $indent = 0) {
-        $output = '';
+if (isset($_GET['action']) && $_GET['action'] === 'showStructure') {
+    header('Content-Type: text/event-stream');
+    header('Cache-Control: no-cache');
+    header('Connection: keep-alive');
+
+    function streamUpdate($data) {
+        echo "data: " . json_encode($data) . "\n\n";
+        ob_flush();
+        flush();
+    }
+
+    function generateFileStructure($dir, $indent = 0) {
         $files = scandir($dir);
 
         foreach ($files as $file) {
@@ -92,17 +115,33 @@ if (isset($_GET['showStructure'])) {
             $prefix = str_repeat('  ', $indent); // Indentation for nested levels
 
             if (is_dir($filePath)) {
-                $output .= $prefix . "📁 " . $file . "\n";
-                $output .= generateFullStructure($filePath, $indent + 1); // Recursively add subdirectories
+                // Stream the directory
+                streamUpdate(['type' => 'directory', 'name' => $prefix . "📁 " . $file]);
+                generateFileStructure($filePath, $indent + 1); // Recursively process subdirectories
             } elseif (is_file($filePath)) {
-                $output .= $prefix . "📄 " . $file . "\n";
+                // Stream the file
+                streamUpdate(['type' => 'file', 'name' => $prefix . "📄 " . $file]);
             }
         }
-
-        return $output;
     }
 
-    echo generateFullStructure($currentPath); // Generate structure starting from $currentPath
+    $currentPath = realpath($_GET['path'] ?? '.');
+    $rootPath = realpath('.');
+
+    if ($currentPath && strpos($currentPath, $rootPath) === 0) {
+        generateFileStructure($currentPath);
+
+        // Send a final message to indicate completion
+        streamUpdate(['complete' => true]);
+
+        // Close the connection
+        echo "event: close\n";
+        echo "data: {}\n\n";
+        ob_flush();
+        flush();
+    } else {
+        streamUpdate(['error' => 'Invalid directory path']);
+    }
     exit;
 } else {
 // Use the current theme directly in the <link> tag
@@ -124,6 +163,9 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
         ?>
     </title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body {
             font-family: monospace;
             margin: 0;
@@ -131,8 +173,11 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
+            height: 100vh; /* Ensure body takes full height of the viewport */
             background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+            overflow: hidden; /* Prevent body scrollbars */
+            padding-top: 20px; /* Add padding to keep space above */
+            padding-bottom: 20px; /* Add padding to keep space below */
         }
         header {
             padding: 15px 20px;
@@ -147,21 +192,26 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
             color: #fff;
         }
         .container {
-            width: 80%;
-            max-width: 800px;
+            width: 95%; /* Adjust to fit most of the browser window */
+            max-width: 800px; /* Prevent it from growing too large */
+            height: auto;
+            max-height: 100%; /* Prevent overflow */
             border-radius: 8px;
             box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
-            overflow: hidden;
+            overflow: hidden; /* Clip content inside */
             display: flex;
             flex-direction: column;
         }
         .content {
-            padding: 20px;
-            overflow-y: auto;
-            flex-grow: 1;
+            padding: 10px; /* Add space inside the content */
+            overflow: auto; /* Enable scrolling when needed */
+            flex-grow: 1; /* Allow the content to stretch */
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* Add spacing between children */
         }
         .info {
-            margin-bottom: 20px;
+            flex-shrink: 0; /* Prevent it from shrinking */
             padding: 10px;
             border-radius: 4px;
             font-size: 0.9rem;
@@ -179,8 +229,10 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
             list-style-type: none;
             padding-left: 0;
             margin: 0;
-            max-height: 60vh;
-            overflow-y: auto;
+            flex-grow: 1; /* Allow the list to grow dynamically */
+            overflow-y: auto; /* Add a vertical scrollbar */
+            overflow-x: hidden;
+            max-height: calc(100% - 100px); /* Dynamically calculate height based on other elements */
             border-top: 1px solid #444;
             border-bottom: 1px solid #444;
         }
@@ -268,6 +320,7 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
             transition: background-color 0.2s;
         }
         footer {
+            flex-shrink: 0; /* Ensure footer doesn't resize */
             text-align: right;
             padding: 10px;
             font-size: 0.8rem;
@@ -275,7 +328,41 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
             color: #777;
             border-top: 1px solid #444;
         }
+        /* File structure area */
+        #fileStructure {
+            display: none; /* Hidden by default */
+            flex-grow: 1; /* Allow it to expand when visible */
+            max-height: 50%; /* Limit height for better layout */
+            overflow-y: auto; /* Add vertical scrolling */
+            background: #333;
+            padding: 10px;
+            border-radius: 8px;
+            color: #eee;
+        }
+        #fileStructure::-webkit-scrollbar {
+            width: 8px;
+        }
+        #fileStructure::-webkit-scrollbar-thumb {
+            background-color: #444;
+            border-radius: 4px;
+        }
+        #fileStructure::-webkit-scrollbar-track {
+            background-color: #222;
+        }
+        /* Responsive behavior */
+        @media (max-width: 768px) {
+            .container {
+                height: 95%; /* Increase height for smaller screens */
+            }
 
+            .content {
+                padding: 10px;
+            }
+
+            ul, #fileStructure {
+                max-height: 30%; /* Reduce height for smaller screens */
+            }
+        }
     </style>
 </head>
 <body>
@@ -334,28 +421,55 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
             <button id="toggleStructure">Show File Structure</button>
             </div>
             <script>
-                document.addEventListener('DOMContentLoaded', async () => {
+                document.addEventListener('DOMContentLoaded', () => {
                     const currentPath = (new URLSearchParams(window.location.search)).get('path') || '.';
+                    const totalFilesEl = document.getElementById('totalFiles');
+                    const totalFoldersEl = document.getElementById('totalFolders');
+                    const totalSizeEl = document.getElementById('totalSize');
 
-                    try {
-                        const response = await fetch(`index.php?action=calculateDirectorySize&path=${encodeURIComponent(currentPath)}`);
-                        if (response.ok) {
-                            const data = await response.json();
-                            document.getElementById('totalFiles').textContent = data.totalFiles;
-                            document.getElementById('totalFolders').textContent = data.totalFolders;
-                            document.getElementById('totalSize').textContent = data.totalSize;
-                        } else {
-                            document.getElementById('totalFiles').textContent = 'Error';
-                            document.getElementById('totalFolders').textContent = 'Error';
-                            document.getElementById('totalSize').textContent = 'Error';
-                            console.error('Failed to fetch directory size:', await response.text());
+                    const formatSize = (size) => {
+                        const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+                        let index = 0;
+                        while (size >= 1024 && index < units.length - 1) {
+                            size /= 1024;
+                            index++;
                         }
-                    } catch (error) {
-                        document.getElementById('totalFiles').textContent = 'Error';
-                        document.getElementById('totalFolders').textContent = 'Error';
-                        document.getElementById('totalSize').textContent = 'Error';
-                        console.error('Error fetching directory size:', error);
-                    }
+                        return `${size.toFixed(2)} ${units[index]}`;
+                    };
+
+                    // Open an EventSource to stream updates
+                    const eventSource = new EventSource(`index.php?action=calculateDirectorySize&path=${encodeURIComponent(currentPath)}`);
+
+                    eventSource.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+
+                        if (data.error) {
+                            totalFilesEl.textContent = 'Error';
+                            totalFoldersEl.textContent = 'Error';
+                            totalSizeEl.textContent = 'Error';
+                            eventSource.close();
+                            return;
+                        }
+
+                        // Update the counts
+                        totalFilesEl.textContent = data.totalFiles || 0;
+                        totalFoldersEl.textContent = data.totalFolders || 0;
+                        totalSizeEl.textContent = formatSize(data.totalSize || 0);
+
+                        // Close the connection if the process is complete
+                        if (data.complete) {
+                            console.log('Processing complete.');
+                            eventSource.close();
+                        }
+                    };
+
+                    eventSource.onerror = () => {
+                        console.error('Error occurred while fetching updates.');
+                        totalFilesEl.textContent = 'Error';
+                        totalFoldersEl.textContent = 'Error';
+                        totalSizeEl.textContent = 'Error';
+                        eventSource.close();
+                    };
                 });
             </script>
 
@@ -371,29 +485,64 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
                     const structureContent = document.getElementById('structureContent');
                     const button = this;
 
+                    // To prevent multiple connections
+                    if (window.currentEventSource) {
+                        // If EventSource already exists, close it and reset
+                        window.currentEventSource.close();
+                        window.currentEventSource = null;
+                    }
+
                     if (fileStructureDiv.style.display === 'none') {
                         // Show file structure
                         button.textContent = 'Hide File Structure';
-                        if (!structureContent.textContent.trim()) {
-                            // Fetch only if not already loaded
-                            // const queryString = window.location.search;
-                            // const urlParams = new URLSearchParams(queryString);
-                            // const currentPath = urlParams.get('path');
-                            const currentPath = (new URLSearchParams(window.location.search)).get('path');
-                            fetch('index.php?showStructure=1&path='+currentPath)
-                                .then(response => response.text())
-                                .then(data => {
-                                    structureContent.textContent = data;
-                                    fileStructureDiv.style.display = 'block';
-                                })
-                                .catch(error => console.error('Error fetching file structure:', error));
-                        } else {
-                            fileStructureDiv.style.display = 'block';
-                        }
+                        fileStructureDiv.style.display = 'block';
+
+                        // Clear previous content
+                        structureContent.textContent = '';
+
+                        // Fetch and stream the file structure
+                        const currentPath = (new URLSearchParams(window.location.search)).get('path') || '.';
+                        const eventSource = new EventSource(`index.php?action=showStructure&path=${encodeURIComponent(currentPath)}`);
+                        window.currentEventSource = eventSource; // Store EventSource globally to manage it
+
+                        eventSource.onmessage = (event) => {
+                            const data = JSON.parse(event.data);
+
+                            if (data.error) {
+                                structureContent.textContent = 'Error loading file structure.';
+                                console.error('Error:', data.error);
+                                eventSource.close();
+                                window.currentEventSource = null;
+                                return;
+                            }
+
+                            if (data.type === 'directory' || data.type === 'file') {
+                                // Append the directory or file to the content
+                                structureContent.textContent += data.name + '\n';
+                            }
+
+                            if (data.complete) {
+                                console.log('File structure loading complete.');
+                                eventSource.close();
+                                window.currentEventSource = null; // Clear the reference when complete
+                            }
+                        };
+
+                        eventSource.onerror = () => {
+                            structureContent.textContent = 'Error loading file structure.';
+                            console.error('Error fetching file structure.');
+                            eventSource.close();
+                            window.currentEventSource = null; // Clear the reference on error
+                        };
                     } else {
-                        // Hide file structure
+                        // Hide file structure and close any active EventSource
                         button.textContent = 'Show File Structure';
                         fileStructureDiv.style.display = 'none';
+
+                        if (window.currentEventSource) {
+                            window.currentEventSource.close();
+                            window.currentEventSource = null; // Clear the reference
+                        }
                     }
                 });
             </script>

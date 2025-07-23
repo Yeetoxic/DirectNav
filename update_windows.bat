@@ -1,38 +1,44 @@
 @echo off
 setlocal enabledelayedexpansion
-cd /d "%~dp0"
+
 echo === Updating DirectNav from GitHub ZIP ===
 
-:: Download ZIP
-curl -L -o update_tmp.zip https://github.com/Yeetoxic/DirectNav/archive/refs/heads/main.zip
+set TMP_DIR=update_tmp
+set ZIP_URL=https://github.com/Yeetoxic/DirectNav/archive/refs/heads/main.zip
+set ZIP_FILE=main.zip
 
-:: Extract
-powershell -Command "Expand-Archive -Force 'update_tmp.zip' 'update_tmp'"
+:: Clean previous temp
+rmdir /s /q %TMP_DIR%
+del /q %ZIP_FILE%
 
-:: === Update core files ===
-echo • Updating core files...
-xcopy /Y /I /Q "update_tmp\DirectNav-main\README.md" "README.md"
-xcopy /Y /I /Q "update_tmp\DirectNav-main\docker-compose.yml" "docker-compose.yml"
-xcopy /Y /I /Q "update_tmp\DirectNav-main\update_windows.bat" "update_windows.bat"
-xcopy /Y /I /Q "update_tmp\DirectNav-main\update_linux.sh" "update_linux.sh"
-xcopy /Y /I /Q "update_tmp\DirectNav-main\setup_windows.bat" "setup_windows.bat"
-xcopy /Y /I /Q "update_tmp\DirectNav-main\setup_linux.sh" "setup_linux.sh"
+:: Create temp dir
+mkdir %TMP_DIR%
 
-:: Update docker folder
-xcopy /E /Y /I "update_tmp\DirectNav-main\docker" "docker"
+:: Download latest
+powershell -Command "Invoke-WebRequest -Uri '%ZIP_URL%' -OutFile '%ZIP_FILE%'"
 
-:: === Update app/index.php & zDirectNav only ===
-echo • Updating /app core files...
-xcopy /Y /I /Q "update_tmp\DirectNav-main\app\index.php" "app\index.php"
-xcopy /E /Y /I "update_tmp\DirectNav-main\app\zDirectNav" "app\zDirectNav"
+:: Extract zip
+powershell -Command "Expand-Archive -Path '%ZIP_FILE%' -DestinationPath '%TMP_DIR%'"
 
-:: Cleanup
-rmdir /S /Q update_tmp
-del update_tmp.zip
+:: Copy updated root files
+xcopy /Y /E /Q "%TMP_DIR%\DirectNav-main\docker\*" "docker\"
+copy /Y "%TMP_DIR%\DirectNav-main\docker-compose.yml" .
+copy /Y "%TMP_DIR%\DirectNav-main\README.md" .
+copy /Y "%TMP_DIR%\DirectNav-main\update_linux.sh" .
+copy /Y "%TMP_DIR%\DirectNav-main\update_windows.bat" .
 
-:: Rebuild Docker
+:: Ensure target directory exists and copy zDirectNav contents
+if not exist "app\zDirectNav" mkdir "app\zDirectNav"
+xcopy /Y /E /Q "%TMP_DIR%\DirectNav-main\app\zDirectNav\*" "app\zDirectNav\"
+
+:: Clean up
+rmdir /s /q %TMP_DIR%
+del /q %ZIP_FILE%
+
+:: Rebuild docker
+echo === Rebuilding Docker containers ===
 docker compose down
 docker compose up --build -d
 
-echo ✅ Update complete!
+echo ✓ Update complete
 pause

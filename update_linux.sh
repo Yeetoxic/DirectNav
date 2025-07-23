@@ -1,30 +1,38 @@
 #!/bin/bash
+
+set -e
+
 echo "=== Updating DirectNav from GitHub ZIP ==="
-cd "$(dirname "$0")"
 
-curl -L -o update_tmp.zip https://github.com/Yeetoxic/DirectNav/archive/refs/heads/main.zip
-unzip -qo update_tmp.zip -d update_tmp
+TMP_DIR="update_tmp"
+ZIP_URL="https://github.com/Yeetoxic/DirectNav/archive/refs/heads/main.zip"
+ZIP_FILE="main.zip"
 
-# === Update core files ===
-echo "• Updating core files..."
-cp update_tmp/DirectNav-main/README.md ./README.md
-cp update_tmp/DirectNav-main/docker-compose.yml ./docker-compose.yml
-cp update_tmp/DirectNav-main/update_windows.bat ./update_windows.bat
-cp update_tmp/DirectNav-main/update_linux.sh ./update_linux.sh
-cp update_tmp/DirectNav-main/setup_windows.bat ./setup_windows.bat
-cp update_tmp/DirectNav-main/setup_linux.sh ./setup_linux.sh
-cp -r update_tmp/DirectNav-main/docker/* ./docker/
+rm -rf "$TMP_DIR" "$ZIP_FILE"
+mkdir -p "$TMP_DIR"
 
-# === Update app core ===
-echo "• Updating /app core files..."
-cp update_tmp/DirectNav-main/app/index.php ./app/index.php
-cp -r update_tmp/DirectNav-main/app/zDirectNav/* ./app/zDirectNav/
+# Download the latest version
+curl -L "$ZIP_URL" -o "$ZIP_FILE"
 
-# Cleanup
-rm -rf update_tmp update_tmp.zip
+# Extract it
+unzip "$ZIP_FILE" -d "$TMP_DIR"
 
-# Rebuild Docker
-docker compose down
-docker compose up --build -d
+# Copy updated files, excluding /app contents
+cp -r "$TMP_DIR"/DirectNav-main/docker/* ./docker/
+cp "$TMP_DIR"/DirectNav-main/docker-compose.yml ./
+cp "$TMP_DIR"/DirectNav-main/README.md ./
+cp "$TMP_DIR"/DirectNav-main/update_linux.sh ./
+cp "$TMP_DIR"/DirectNav-main/update_windows.bat ./
 
-echo "✅ Update complete!"
+# Safely update zDirectNav only (contents)
+mkdir -p ./app/zDirectNav
+cp -r "$TMP_DIR"/DirectNav-main/app/zDirectNav/* ./app/zDirectNav/
+
+# Clean up
+rm -rf "$TMP_DIR" "$ZIP_FILE"
+
+# Rebuild docker
+echo "=== Rebuilding Docker containers ==="
+docker compose down && docker compose up --build -d
+
+echo "✓ Update complete"

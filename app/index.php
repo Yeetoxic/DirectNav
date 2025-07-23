@@ -16,6 +16,38 @@ $files = is_readable($currentPath) ? scandir($currentPath) : [];
 $theme = isset($_GET['theme']) ? $_GET['theme'] : (isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'default.css');
 setcookie('theme', $theme, time() + (10 * 365 * 24 * 60 * 60), "/");
 
+// Recursive search
+if (isset($_GET['action']) && $_GET['action'] === 'searchFiles' && isset($_GET['query'])) {
+    header('Content-Type: application/json');
+    $query = strtolower($_GET['query']);
+    $rootPath = realpath('.');
+
+    function recursiveSearch($dir, $query, $rootPath) {
+        $results = [];
+        $items = scandir($dir);
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') continue;
+            $fullPath = $dir . DIRECTORY_SEPARATOR . $item;
+
+            if (stripos($item, $query) !== false) {
+                $results[] = [
+                    'name' => $item,
+                    'path' => str_replace($rootPath . DIRECTORY_SEPARATOR, '', $fullPath),
+                    'size' => is_file($fullPath) ? filesize($fullPath) : 0,
+                    'isDir' => is_dir($fullPath),
+                ];
+            }
+
+            if (is_dir($fullPath)) {
+                $results = array_merge($results, recursiveSearch($fullPath, $query, $rootPath));
+            }
+        }
+        return $results;
+    }
+
+    echo json_encode(recursiveSearch($rootPath, $query, $rootPath));
+    exit;
+}
 
 // Calculate file/folder sizes
  // Asynchronous Directory Size Calculation
@@ -89,9 +121,6 @@ setcookie('theme', $theme, time() + (10 * 365 * 24 * 60 * 60), "/");
     }
     exit;
 }
-
-
-
 
 // Full File structure stuff
 if (isset($_GET['action']) && $_GET['action'] === 'showStructure') {
@@ -309,16 +338,34 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
         a.clickable-item .icon {
             margin-right: 10px;
         }
-        .back-button {
-            display: inline-block;
-            font-size: 0.8rem;
-            margin-bottom: 5px;
-            padding: 8px 12px;
-            color: #fff;
-            border-radius: 4px;
-            text-decoration: none;
-            transition: background-color 0.2s;
+        .explorer-nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
         }
+        .explorer-nav button {
+            padding: 6px 10px;
+            background-color: #2d2d2d;
+            border: 1px solid #444;
+            color: #eee;
+            border-radius: 5px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .explorer-nav input {
+            flex: 1;
+            padding: 6px;
+            background: #1e1e1e;
+            color: #aaa;
+            border: 1px solid #444;
+            border-radius: 5px;
+        }
+        .explorer-nav button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
         footer {
             flex-shrink: 0; /* Ensure footer doesn't resize */
             text-align: right;
@@ -363,6 +410,46 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
                 max-height: 30%; /* Reduce height for smaller screens */
             }
         }
+
+        .file-size {
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-left: 6px;
+        }
+
+        /* BreadCrumb stuff */
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin: 10px 0;
+            padding: 5px 10px;
+            background-color: #222;
+            border-radius: 4px;
+            color: #bbb;
+        }
+
+        .breadcrumb a {
+            color: #80d4ff;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+
+        .crumb-collapse {
+            color: #888;
+            padding: 0 5px;
+        }
+
+        .breadcrumb.gray-root {
+            display: inline-block;
+            background-color: #2a2a2a;
+            border-radius: 6px;
+            padding: 0.25rem 0.6rem;
+            color: #aaa;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -390,16 +477,46 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
                 </select>
             </form>
             <p class="header-text"><b>Directory Listing for "<?php echo ($directoryName === 'html' ? 'root' : htmlspecialchars($directoryName)); ?>"</b><br><p>
-            <?php 
-                if ($currentPath !== $rootPath) {
-                    $parentPath = dirname($currentPath);
-                    echo '<a href="?path=' . urlencode($parentPath) . '&theme=' . htmlspecialchars($theme) . '" class="back-button">← Back to Parent Directory</a>';
-                } else {
-                    echo '<p class="header-info"><i>You are at the root directory.</i></p>';
+            <?php
+            function build_breadcrumb($basePath, $currentPath, $theme) {
+                $relative = str_replace($basePath, '', $currentPath);
+                $segments = array_filter(explode(DIRECTORY_SEPARATOR, $relative));
+                
+                if (empty($segments)) {
+                    return '<div class="breadcrumb gray-root"><span>You are at the root directory.</span></div>';
                 }
-            ?>
-        </header>
 
+                $breadcrumb = '<nav class="breadcrumb"><a href="?path=' . urlencode($basePath) . '&theme=' . urlencode($theme) . '">Home</a>';
+                $fullPath = $basePath;
+
+                // Collapse long paths
+                if (count($segments) > 4) {
+                    $breadcrumb .= ' / <span class="crumb-collapse">...</span>';
+                    $segments = array_slice($segments, -3);
+                    $start = count(explode(DIRECTORY_SEPARATOR, $basePath)) + (count($segments) - 3);
+                    $parts = explode(DIRECTORY_SEPARATOR, $currentPath);
+                    $fullPath = implode(DIRECTORY_SEPARATOR, array_slice($parts, 0, $start));
+                }
+
+                foreach ($segments as $segment) {
+                    $fullPath .= DIRECTORY_SEPARATOR . $segment;
+                    $breadcrumb .= ' / <a href="?path=' . urlencode($fullPath) . '&theme=' . urlencode($theme) . '">' . htmlspecialchars($segment) . '</a>';
+                }
+
+                $breadcrumb .= '</nav>';
+                return $breadcrumb;
+            }
+            ?>
+            <div class="explorer-nav">
+                <button id="backBtn" onclick="goBack()" 
+                    <?php if ($currentPath === $rootPath) echo 'disabled'; ?>>
+                    ◀ Back
+                </button>
+                <div id="breadcrumbBar">
+                    <?= build_breadcrumb($rootPath, $currentPath, $theme) ?>
+                </div>
+            </div>
+        </header>
 
         <div class="content">
         <?php
@@ -420,6 +537,7 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
             <p>Total Size: <span id="totalSize">Calculating...</span></p>
             <button id="toggleStructure">Show File Structure</button>
             </div>
+            <input type="text" id="searchInput" placeholder="Filter files..." style="margin-bottom: 10px; padding: 6px; background: #1e1e1e; border: 1px solid #444; color: #ccc; border-radius: 5px;">
             <script>
                 document.addEventListener('DOMContentLoaded', () => {
                     const currentPath = (new URLSearchParams(window.location.search)).get('path') || '.';
@@ -548,8 +666,21 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
             </script>
             <ul>
                 <?php
-                foreach ($files as $file) {
-                    if ($file === '.' || $file === '..') continue;
+                $visibleItems = array_filter($files, fn($f) => $f !== '.' && $f !== '..');
+                function formatSize($bytes) {
+                    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                    $i = 0;
+                    while ($bytes >= 1024 && $i < count($units) - 1) {
+                        $bytes /= 1024;
+                        $i++;
+                    }
+                    return round($bytes, 2) . ' ' . $units[$i];
+                }
+                if (empty($visibleItems)) {
+                    echo '<li><em>This directory is empty.</em></li>';
+                }
+
+                foreach ($visibleItems as $file) {
 
                     $relativePath = ltrim(str_replace($rootPath, '', $currentPath . DIRECTORY_SEPARATOR . $file), DIRECTORY_SEPARATOR);
 
@@ -559,14 +690,46 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
                         echo '<span class="file-name">' . htmlspecialchars($file) . '</span>';
                         echo '</li>';
                     } elseif ($file === basename(__FILE__) && realpath($currentPath) === $rootPath) {
+                        $filePath = $currentPath . DIRECTORY_SEPARATOR . $file;
+                        $fileSize = is_file($filePath) ? formatSize(filesize($filePath)) : '';
+
                         echo '<li>';
-                        echo '<span class="icon file">📄</span>';
-                        echo '<span class="file-name">' . htmlspecialchars($file) . ' <span class="currently-open">(currently open)</span></span>';
+                        $ext = pathinfo($file, PATHINFO_EXTENSION);
+                        $icon = match (strtolower($ext)) {
+                            'png', 'jpg', 'jpeg', 'gif', 'webp' => '🖼️',
+                            'mp3', 'wav', 'ogg' => '🎵',
+                            'mp4', 'webm', 'avi', 'mov' => '🎞️',
+                            'zip', 'rar', '7z' => '📦',
+                            'txt', 'md', 'log' => '📜',
+                            'php', 'js', 'html', 'css', 'py', 'java', 'c', 'cpp' => '💻',
+                            'pdf' => '📕',
+                            default => '📄',
+                        };
+                        echo '<span class="icon file">' . $icon . '</span>';
+                        echo '<span class="file-name">' . htmlspecialchars($file) . ' <span class="currently-open">(currently open)</span>';
+                        if ($fileSize) echo ' <span class="file-size">(' . $fileSize . ')</span>';
+                        echo '</span>';
                         echo '</li>';
                     } else {
+                        $filePath = $currentPath . DIRECTORY_SEPARATOR . $file;
+                        $fileSize = is_file($filePath) ? formatSize(filesize($filePath)) : '';
+
                         echo '<li onclick="location.href=\'/' . htmlspecialchars($relativePath) . '\'">';
-                        echo '<span class="icon file">📄</span>';
-                        echo '<span class="file-name">' . htmlspecialchars($file) . '</span>';
+                        $ext = pathinfo($file, PATHINFO_EXTENSION);
+                        $icon = match (strtolower($ext)) {
+                            'png', 'jpg', 'jpeg', 'gif', 'webp' => '🖼️',
+                            'mp3', 'wav', 'ogg' => '🎵',
+                            'mp4', 'webm', 'avi', 'mov' => '🎞️',
+                            'zip', 'rar', '7z' => '📦',
+                            'txt', 'md', 'log' => '📜',
+                            'php', 'js', 'html', 'css', 'py', 'java', 'c', 'cpp' => '💻',
+                            'pdf' => '📕',
+                            default => '📄',
+                        };
+                        echo '<span class="icon file">' . $icon . '</span>';
+                        echo '<span class="file-name">' . htmlspecialchars($file);
+                        if ($fileSize) echo ' <span class="file-size">(' . $fileSize . ')</span>';
+                        echo '</span>';
                         echo '</li>';
                     }
                 }
@@ -577,5 +740,98 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
             Interactive File Organization Interface &copy; Danil Vilmont <?php echo date('Y'); ?>
         </footer>
     </div>
+    <script>
+    document.getElementById('searchInput').addEventListener('input', function () {
+        const query = this.value.toLowerCase();
+        const fileList = document.querySelector('ul');
+        const infoBox = document.querySelector('.info');
+
+        // Clear list if searching
+        if (query.length > 0) {
+            fetch(`?action=searchFiles&query=${encodeURIComponent(query)}`)
+                .then(res => res.json())
+                .then(data => {
+                    fileList.innerHTML = '';
+                    if (data.length === 0) {
+                        fileList.innerHTML = '<li><em>No matches found.</em></li>';
+                    } else {
+                        data.forEach(file => {
+                            const li = document.createElement('li');
+                            li.onclick = () => window.location.href = file.isDir
+                                ? `?path=${encodeURIComponent(file.path)}`
+                                : `/${file.path}`;
+
+                            const icon = document.createElement('span');
+                            icon.className = 'icon file';
+                            icon.textContent = file.isDir ? '📁' : '📄';
+
+                            const name = document.createElement('span');
+                            name.className = 'file-name';
+                            name.innerHTML = `${file.name} <span class="file-size">(${(file.size / 1024).toFixed(1)} KB)</span><br><small style="color:#888;">${file.path}</small>`;
+
+                            li.appendChild(icon);
+                            li.appendChild(name);
+                            fileList.appendChild(li);
+                        });
+                    }
+
+                    infoBox.style.display = 'none'; // hide summary stats while filtering
+                });
+        } else {
+            window.location.reload(); // reload to default view if empty query
+        }
+    });
+    </script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        let currentPath = urlParams.get('path') || '.';
+        let theme = urlParams.get('theme') || 'default';
+
+        // Load history from sessionStorage or initialize
+        let historyStack = JSON.parse(sessionStorage.getItem('historyStack') || '[]');
+        let historyIndex = Number.isInteger(parseInt(sessionStorage.getItem('historyIndex')))
+            ? parseInt(sessionStorage.getItem('historyIndex'))
+            : -1;
+
+        // Update history if navigating to a new path
+        window.addEventListener('beforeunload', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentPath = urlParams.get('path') || '.';
+            const prevPath = historyStack[historyIndex];
+
+            // Only update history if this is a normal navigation
+            if (prevPath !== currentPath) {
+                historyStack = historyStack.slice(0, historyIndex + 1);
+                historyStack.push(currentPath);
+                historyIndex++;
+                sessionStorage.setItem('historyStack', JSON.stringify(historyStack));
+                sessionStorage.setItem('historyIndex', historyIndex.toString());
+            }
+        });
+
+        // Save updated history
+        sessionStorage.setItem('historyStack', JSON.stringify(historyStack));
+        sessionStorage.setItem('historyIndex', historyIndex.toString());
+
+        function goBack() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentPath = urlParams.get('path') || '.';
+            const theme = urlParams.get('theme') || 'default';
+
+            // Go up one directory
+            const parts = currentPath.split('/');
+            if (parts.length > 1) {
+                parts.pop();
+                const newPath = parts.join('/') || '.';
+                window.location.href = `?path=${encodeURIComponent(newPath)}&theme=${encodeURIComponent(theme)}`;
+            }
+        }
+
+        function updatePathDisplay() {
+            document.getElementById('currentPathDisplay').value = decodeURIComponent(currentPath);
+        }
+        updatePathDisplay();
+        document.getElementById('backBtn').disabled = historyIndex <= 0;
+    </script>
 </body>
 </html>

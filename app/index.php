@@ -537,7 +537,7 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
             <p>Total Size: <span id="totalSize">Calculating...</span></p>
             <button id="toggleStructure">Show File Structure</button>
             </div>
-            <input type="text" id="searchInput" placeholder="Filter files..." style="margin-bottom: 10px; padding: 6px; background: #1e1e1e; border: 1px solid #444; color: #ccc; border-radius: 5px;">
+            <input type="text" id="searchInput" placeholder="Filter files..." style="margin-bottom: 2px; padding: 6px; background: #1e1e1e; border: 1px solid #444; color: #ccc; border-radius: 5px;">
             <script>
                 document.addEventListener('DOMContentLoaded', () => {
                     const currentPath = (new URLSearchParams(window.location.search)).get('path') || '.';
@@ -592,7 +592,7 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
             </script>
 
 
-            <div id="fileStructure" style="display: none; margin-top: 20px; background: #333; padding: 10px; border-radius: 8px; color: #eee;">
+            <div id="fileStructure" style="display: none; margin-top: 5px; background: #333; padding: 10px; border-radius: 8px; color: #eee;">
                 <h4>Full File Structure:</h4>
                 <pre id="structureContent"></pre>
             </div>

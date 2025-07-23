@@ -1,0 +1,40 @@
+body {
+    background: linear-gradient(135deg, #0d1b12, #16281b);
+    color: #e4e4dc;
+}
+header {
+    background-color: #174728;
+    color: #e4e4dc;
+}
+.container {
+    background-color: #1a2b1e;
+    border: 1px solid #26734d;
+}
+.info {
+    background-color: #22342d;
+    border: 1px solid #345b41;
+    color: #d1dcc1;
+}
+.back-button {
+    background: #174728;
+}
+.back-button:hover {
+    background: #133d23;
+}
+ul li {
+    background-color: #283933;
+    border: 1px solid #345b41;
+}
+ul li:hover {
+    background-color: #2c4437;
+}
+.icon.file {
+    color: #a1c96a;
+}
+.icon.folder {
+    color: #78b578;
+}
+footer {
+    background-color: #1a2b1e;
+    color: #888;
+}

@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  php84-apache:
+    build:
+      context: ./docker
+      dockerfile: dockerfile
+    container_name: php84_xdebug_apache_container
+    ports:
+      - "9000:80"
+    volumes:
+      - ./app:/var/www/html
+    restart: unless-stopped

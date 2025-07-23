@@ -1,0 +1,9 @@
+FROM php:8.4-apache
+
+RUN a2enmod rewrite
+
+# Copy Xdebug config
+COPY xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
+
+# Copy Apache config
+COPY 000-default.conf /etc/apache2/sites-available/000-default.conf

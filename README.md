@@ -1,125 +1,103 @@
 # DirectNav - Lightweight Directory Navigation Tool
 ## A Directory Navigator for ITAS 186
 
-**DirectNav** is a simple and customizable PHP-based directory navigation tool. It allows users to browse directories with switchable themes.
-
-## Features
-- Dynamic directory listing with folder and file distinctions.
-- Customizable themes to change the visual appearance.
-- Supports clickable, fully interactive directory boxes.
+**DirectNav** is a simple and customizable PHP-based directory navigation tool. It provides a visual interface for browsing directories with swappable themes and an interactive layout.
 
 ---
 
-## File Structure
+## 🚀 Features
+- Dynamic directory listing with folder and file distinctions.
+- Clickable, interactive folder/file boxes.
+- Customizable theme system with live switching.
+- Now supports Docker-based local development (Windows/macOS/Linux).
+
+---
+
+## 📁 File Structure
 ```
-/var/www/html/
+app/
 ├── index.php
 ├── zDirectNav/
-│   ├── config.json         # Stores port configuration  (DEPRECIATED)
-│   ├── themes/             # Folder for custom CSS themes
-│       ├── default.css
-│       ├── midnight.css
-│       ├── cyberpunk.css
+│   ├── themes/
+│   │   ├── default.css
+│   │   ├── midnight.css
+│   │   ├── cyberpunk.css
+│   │   ├── forest.css
+│   │   ├── mae_red.css
+│   │   ├── ocean.css
+│   │   ├── Sunset.css
 ```
 
----
-
-## Setup Instructions
-
-1. **Clone or Copy Files**
-   - Copy the `index.php` file and the `zDirectNav` folder into your PHP-enabled web server's root directory.
-
-2. **Set Permissions**
-   - Ensure that the `config.json` file is writable by the server to allow updates to the port configuration:
-     ```bash
-     chmod 666 /path/to/zDirectNav/config.json
-     ```
-
-3. **Themes**
-   - Add custom themes by creating a new `.css` file in the `zDirectNav/themes/` folder.
-   - Existing themes include:
-     - `default.css`
-     - `midnight.css`
-     - `cyberpunk.css`
-
-4. **Access the Tool**
-   - Open your browser and navigate to the server hosting the tool, e.g., `http://localhost/index.php`.
-
-5. ~~**Change the Port**~~
-   - ~~Use the "Configuration" section to update the server port dynamically. The new port will be saved in `config.json`.~~
+> 💡 `config.json` has been deprecated and is no longer required.
 
 ---
 
-## How to Add a Theme
-1. Create a new `.css` file in the `zDirectNav/themes/` directory.
-2. Use the provided CSS template to maintain compatibility:
-   ```css
-   body {
-    background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
-    color: #eaeaea;
-   }
-   header {
-       background-color: #333;
-       color: #fff;
-   }
-   .container {
-       background-color: #2a2a2a;
-       border: 1px solid #444;
-   }
-   .info {
-       background-color: #333;
-       border: 1px solid #b30e0e;
-       color: #bbb;
-   }
-   .back-button {
-       background: #333;
-       border: 1px solid #b30e0e;
-   }
-   .back-button:hover {
-       background: #3e3e3e;
-       border: 1px solid #b30e0e;
-   }
-   ul li {
-       background-color: #333;
-       border: 1px solid #444;
-   }
-   ul li:hover {
-       background-color: #3e3e3e;
-       border: 1px solid #b30e0e;
-   }
-   .icon.file {
-       color: #61dafb;
-   }
-   .icon.folder {
-       color: #f0c674;
-   }
-   footer {
-       background-color: #222;
-       color: #777;
-   }
-   ```
-3. Refresh the page to see the new theme listed in the dropdown menu.
+## 🐳 Setup (Docker Desktop Recommended)
+
+This project includes everything you need to get started with Docker:
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/Yeetoxic/DirectNav.git
+cd DirectNav
+```
+
+### 2. Windows Users
+Double-click `setup_windows.bat` to build and launch the container.
+
+### 3. macOS/Linux Users
+Run the following in your terminal:
+```bash
+chmod +x setup_linux.sh
+./setup_linux.sh
+```
+
+### 4. Open in Browser
+Visit: [http://localhost:9000](http://localhost:9000)
 
 ---
 
-## Troubleshooting
-1. ~~**Port Update Issues**~~
-   - ~~Ensure the `config.json` file is writable by the server.~~
-   - Check PHP error logs for details.
+## 🎨 Adding a Theme
 
-2. **Theme Not Showing**
-   - Verify that the `.css` file is correctly placed in the `themes/` folder.
-   - Ensure the file has the correct permissions.
+1. Create a new `.css` file in `zDirectNav/themes/`.
+2. Follow the base structure below or copy from an existing theme:
 
-3. **Incorrect Folder/File Count**
-   - Ensure the PHP script is running in the correct directory with proper permissions.
+```css
+body {
+  background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+  color: #eaeaea;
+}
+.icon.file { color: #61dafb; }
+.icon.folder { color: #f0c674; }
+/* See other themes for full structure */
+```
+
+3. Refresh the page to see your new theme listed in the dropdown.
 
 ---
 
-## License
-This project is open-source and available for use and modification under the [MIT License](LICENSE).
+## 🛠️ Troubleshooting
+
+- **Theme Not Showing Up**
+  - Ensure the `.css` file is saved in `zDirectNav/themes/`
+  - Check for typos in the filename or CSS
+
+- **File Permissions**
+  - On Linux/macOS, make sure files inside `app/` are readable:
+    ```bash
+    chmod -R 755 app/
+    ```
+
+- **Docker Not Starting**
+  - Make sure Docker Desktop is installed and running
+  - On Windows, run `setup_windows.bat` as Administrator if needed
 
 ---
 
-## Additions / Commits
-If you'd like to add a feature / theme, feel free to fork & request a push to the main branch!
+## 📜 License
+This project is licensed under the [MIT License](LICENSE).
+
+---
+
+## 🙋‍♂️ Want to Contribute?
+Fork it, add a theme or feature, and submit a pull request! We welcome all contributions.

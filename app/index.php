@@ -22,6 +22,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'searchFiles' && isset($_GET['
     $query = strtolower($_GET['query']);
     $rootPath = realpath('.');
 
+    function formatSizeUnits($bytes) {
+        if ($bytes >= 1099511627776) return number_format($bytes / 1099511627776, 2) . ' TB';
+        elseif ($bytes >= 1073741824) return number_format($bytes / 1073741824, 2) . ' GB';
+        elseif ($bytes >= 1048576) return number_format($bytes / 1048576, 2) . ' MB';
+        elseif ($bytes >= 1024) return number_format($bytes / 1024, 2) . ' KB';
+        elseif ($bytes > 1) return $bytes . ' B';
+        elseif ($bytes == 1) return '1 B';
+        else return '0 B';
+    }
+
     function recursiveSearch($dir, $query, $rootPath) {
         $results = [];
         $items = scandir($dir);
@@ -33,7 +43,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'searchFiles' && isset($_GET['
                 $results[] = [
                     'name' => $item,
                     'path' => str_replace($rootPath . DIRECTORY_SEPARATOR, '', $fullPath),
-                    'size' => is_file($fullPath) ? filesize($fullPath) : 0,
+                    'size' => is_file($fullPath) ? formatSizeUnits(filesize($fullPath)) : 'folder',
                     'isDir' => is_dir($fullPath),
                 ];
             }
@@ -767,7 +777,7 @@ echo '<link rel="stylesheet" href="zDirectNav/themes/' . htmlspecialchars($theme
 
                             const name = document.createElement('span');
                             name.className = 'file-name';
-                            name.innerHTML = `${file.name} <span class="file-size">(${(file.size / 1024).toFixed(1)} KB)</span><br><small style="color:#888;">${file.path}</small>`;
+                            name.innerHTML = `${file.name} <span class="file-size">(${typeof file.size === 'string' ? file.size : (file.size / 1024).toFixed(1) + ' KB'})</span><br><small style="color:#888;">${file.path}</small>`;
 
                             li.appendChild(icon);
                             li.appendChild(name);

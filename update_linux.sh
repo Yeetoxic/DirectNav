@@ -1,33 +1,30 @@
 #!/bin/bash
+echo "=== Updating DirectNav from GitHub ZIP ==="
+cd "$(dirname "$0")"
 
-echo "🔄 Updating DirectNav..."
+curl -L -o update_tmp.zip https://github.com/Yeetoxic/DirectNav/archive/refs/heads/main.zip
+unzip -qo update_tmp.zip -d update_tmp
 
-# Move to script directory
-cd "$(dirname "$0")" || exit 1
+# === Update core files ===
+echo "• Updating core files..."
+cp update_tmp/DirectNav-main/README.md ./README.md
+cp update_tmp/DirectNav-main/docker-compose.yml ./docker-compose.yml
+cp update_tmp/DirectNav-main/update_windows.bat ./update_windows.bat
+cp update_tmp/DirectNav-main/update_linux.sh ./update_linux.sh
+cp update_tmp/DirectNav-main/setup_windows.bat ./setup_windows.bat
+cp update_tmp/DirectNav-main/setup_linux.sh ./setup_linux.sh
+cp -r update_tmp/DirectNav-main/docker/* ./docker/
 
-# Check for git
-if ! command -v git &> /dev/null; then
-    echo "❌ Git is not installed. Please install Git to continue."
-    exit 1
-fi
+# === Update app core ===
+echo "• Updating /app core files..."
+cp update_tmp/DirectNav-main/app/index.php ./app/index.php
+cp -r update_tmp/DirectNav-main/app/zDirectNav/* ./app/zDirectNav/
 
-# Exclude /app from being touched
-EXCLUDE_PATH="app"
+# Cleanup
+rm -rf update_tmp update_tmp.zip
 
-echo "📦 Backing up any uncommitted changes (except /app)..."
-git status --porcelain | grep -v "^ M $EXCLUDE_PATH" | grep '^ M ' > /dev/null && git stash push -m "Auto-stash before update"
+# Rebuild Docker
+docker compose down
+docker compose up --build -d
 
-echo "⬇️ Pulling latest changes from GitHub..."
-git pull origin main || git pull origin master
-
-echo "🔁 Reapplying stashed changes (if any)..."
-git stash pop || echo "✅ No local changes to reapply."
-
-# Optional Docker rebuild
-if [ -f docker-compose.yml ]; then
-    echo "🐳 Rebuilding Docker containers..."
-    docker compose down
-    docker compose up -d --build
-fi
-
-echo "✅ DirectNav update complete. Your /app directory was left untouched."
+echo "✅ Update complete!"

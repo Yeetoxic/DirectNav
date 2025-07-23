@@ -1,38 +1,38 @@
 @echo off
-echo 🔄 Updating DirectNav...
-
+setlocal enabledelayedexpansion
 cd /d "%~dp0"
+echo === Updating DirectNav from GitHub ZIP ===
 
-:: Check for Git
-where git >nul 2>&1
-if errorlevel 1 (
-    echo ❌ Git is not installed or not in PATH. Aborting.
-    pause
-    exit /b 1
-)
+:: Download ZIP
+curl -L -o update_tmp.zip https://github.com/Yeetoxic/DirectNav/archive/refs/heads/main.zip
 
-:: Stash changes that aren't in /app
-echo 📦 Backing up uncommitted changes (excluding /app)...
+:: Extract
+powershell -Command "Expand-Archive -Force 'update_tmp.zip' 'update_tmp'"
 
-:: Use git ls-files to safely stash only non-/app changes
-for /f "delims=" %%f in ('git status --porcelain ^| findstr /V /C:" M app/"') do (
-    git stash push -m "Auto-stash before update" >nul
-    goto :skip_pull
-)
+:: === Update core files ===
+echo • Updating core files...
+xcopy /Y /I /Q "update_tmp\DirectNav-main\README.md" "README.md"
+xcopy /Y /I /Q "update_tmp\DirectNav-main\docker-compose.yml" "docker-compose.yml"
+xcopy /Y /I /Q "update_tmp\DirectNav-main\update_windows.bat" "update_windows.bat"
+xcopy /Y /I /Q "update_tmp\DirectNav-main\update_linux.sh" "update_linux.sh"
+xcopy /Y /I /Q "update_tmp\DirectNav-main\setup_windows.bat" "setup_windows.bat"
+xcopy /Y /I /Q "update_tmp\DirectNav-main\setup_linux.sh" "setup_linux.sh"
 
-:skip_pull
-echo ⬇️ Pulling latest updates...
-git pull origin main || git pull origin master
+:: Update docker folder
+xcopy /E /Y /I "update_tmp\DirectNav-main\docker" "docker"
 
-echo 🔁 Reapplying stashed changes (if any)...
-git stash pop || echo ✅ No stashed changes to reapply.
+:: === Update app/index.php & zDirectNav only ===
+echo • Updating /app core files...
+xcopy /Y /I /Q "update_tmp\DirectNav-main\app\index.php" "app\index.php"
+xcopy /E /Y /I "update_tmp\DirectNav-main\app\zDirectNav" "app\zDirectNav"
 
-:: Docker support
-if exist docker-compose.yml (
-    echo 🐳 Rebuilding Docker containers...
-    docker compose down
-    docker compose up -d --build
-)
+:: Cleanup
+rmdir /S /Q update_tmp
+del update_tmp.zip
 
-echo ✅ DirectNav update complete. Files in /app were preserved.
+:: Rebuild Docker
+docker compose down
+docker compose up --build -d
+
+echo ✅ Update complete!
 pause

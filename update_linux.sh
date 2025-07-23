@@ -1,38 +1,101 @@
 #!/bin/bash
-
 set -e
-
-echo "=== Updating DirectNav from GitHub ZIP ==="
+shopt -s globstar nullglob
 
 TMP_DIR="update_tmp"
-ZIP_URL="https://github.com/Yeetoxic/DirectNav/archive/refs/heads/main.zip"
 ZIP_FILE="main.zip"
+ZIP_URL="https://github.com/Yeetoxic/DirectNav/archive/refs/heads/main.zip"
+LOG_FILE="update_log.txt"
+SELF="$(realpath "$0")"
+DIR="$(dirname "$SELF")"
+NEW_UPDATER="$DIR/update_new.sh"
+POST_SCRIPT="$DIR/run_after_update.sh"
 
-rm -rf "$TMP_DIR" "$ZIP_FILE"
-mkdir -p "$TMP_DIR"
+echo "=== DirectNav Auto-Updater ==="
+cd "$DIR"
 
-# Download the latest version
+# Cleanup previous run
+rm -rf "$TMP_DIR" "$ZIP_FILE" "$LOG_FILE" "$NEW_UPDATER" "$POST_SCRIPT"
+
+# Shut down Docker
+echo "Stopping Docker containers..."
+docker compose down || true
+
+# Download and extract
+echo "Downloading latest DirectNav ZIP..."
 curl -L "$ZIP_URL" -o "$ZIP_FILE"
 
-# Extract it
-unzip "$ZIP_FILE" -d "$TMP_DIR"
+echo "Extracting ZIP..."
+unzip -qq "$ZIP_FILE" -d "$TMP_DIR"
 
-# Copy updated files, excluding /app contents
-cp -r "$TMP_DIR"/DirectNav-main/docker/* ./docker/
-cp "$TMP_DIR"/DirectNav-main/docker-compose.yml ./
-cp "$TMP_DIR"/DirectNav-main/README.md ./
-cp "$TMP_DIR"/DirectNav-main/update_linux.sh ./
-cp "$TMP_DIR"/DirectNav-main/update_windows.bat ./
+SRC="$TMP_DIR/DirectNav-main"
+echo "Update Summary:" > "$LOG_FILE"
+echo "------------------------------" >> "$LOG_FILE"
 
-# Safely update zDirectNav only (contents)
-mkdir -p ./app/zDirectNav
-cp -r "$TMP_DIR"/DirectNav-main/app/zDirectNav/* ./app/zDirectNav/
+# Safe file copy function
+copy_file() {
+    local src="$1"
+    local dst="$2"
+    if [ ! -f "$src" ]; then return; fi
 
-# Clean up
-rm -rf "$TMP_DIR" "$ZIP_FILE"
+    if [ -f "$dst" ]; then
+        if ! cmp -s "$src" "$dst"; then
+            cp "$src" "$dst"
+            echo "[REPLACED] $dst" >> "$LOG_FILE"
+        fi
+    else
+        mkdir -p "$(dirname "$dst")"
+        cp "$src" "$dst"
+        echo "[ADDED] $dst" >> "$LOG_FILE"
+    fi
+}
 
-# Rebuild docker
-echo "=== Rebuilding Docker containers ==="
-docker compose down && docker compose up --build -d
+# Replace safe root-level files
+for file in README.md docker-compose.yml setup_linux.sh setup_windows.bat update_windows.bat; do
+    copy_file "$SRC/$file" "$DIR/$file"
+done
 
-echo "✓ Update complete"
+# Save updater for delayed replacement
+cp "$SRC/update_linux.sh" "$NEW_UPDATER"
+echo "[REPLACED] update_linux.sh" >> "$LOG_FILE"
+
+# Copy docker/
+echo "Updating docker/..."
+for file in "$SRC/docker"/**/*; do
+    [ -f "$file" ] || continue
+    rel="${file#$SRC/}"
+    copy_file "$file" "$DIR/$rel"
+done
+
+# Copy app/index.php and app/zDirectNav/
+echo "Updating app/zDirectNav/..."
+copy_file "$SRC/app/index.php" "$DIR/app/index.php"
+
+for file in "$SRC/app/zDirectNav"/**/*; do
+    [ -f "$file" ] || continue
+    rel="${file#$SRC/}"
+    copy_file "$file" "$DIR/$rel"
+done
+
+# Show summary
+echo "------------------------------"
+cat "$LOG_FILE"
+echo "------------------------------"
+echo
+read -rp "Press ENTER to run setup and finalize update..."
+
+# Write the post-run shell script
+cat > "$POST_SCRIPT" <<EOF
+#!/bin/bash
+sleep 1
+bash "$DIR/setup_linux.sh" &
+sleep 2
+if [ -f "$NEW_UPDATER" ]; then
+    mv "$NEW_UPDATER" "$SELF"
+fi
+rm -rf "$DIR/$TMP_DIR" "$DIR/$ZIP_FILE" "$DIR/$POST_SCRIPT"
+EOF
+
+chmod +x "$POST_SCRIPT"
+"$POST_SCRIPT" &
+exit 0

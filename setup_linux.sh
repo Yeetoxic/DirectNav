@@ -11,4 +11,7 @@ mkdir -p ./app
 # Launch the container
 docker-compose up -d --build
 
-echo "✅ Done! App should be available at http://localhost:9000"
+echo
+echo "✅ Done! App should be available at:"
+echo "   🔓 http://localhost:9000 (for local development)"
+echo "   🔒 https://localhost:9443 (self-signed cert warning may appear)"

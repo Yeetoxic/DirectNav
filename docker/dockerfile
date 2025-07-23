@@ -5,5 +5,13 @@ RUN a2enmod rewrite
 # Copy Xdebug config
 COPY xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
 
-# Copy Apache config
-COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
+# Enable SSL + Rewrite
+RUN a2enmod ssl && a2enmod rewrite
+
+# Generate self-signed cert
+COPY generate-ssl.sh /generate-ssl.sh
+RUN chmod +x /generate-ssl.sh && /generate-ssl.sh
+
+# Replace the default site with SSL config
+COPY default-ssl.conf /etc/apache2/sites-available/default-ssl.conf
+RUN a2ensite default-ssl.conf

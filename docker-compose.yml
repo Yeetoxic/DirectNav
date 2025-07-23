@@ -8,6 +8,8 @@ services:
     container_name: php84_xdebug_apache_container
     ports:
       - "9000:80"
+      - "9443:443"  # HTTPS
+
     volumes:
       - ./app:/var/www/html
     restart: unless-stopped

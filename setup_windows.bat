@@ -25,5 +25,7 @@ docker-compose up --build -d
 
 echo.
 echo [SUCCESS] The container is up and running!
-echo Open http://localhost:9000 in your browser.
+echo Open one of the following in your browser:
+echo    - http://localhost:9000 (for local development)
+echo    - https://localhost:9443 (may show a certificate warning)
 pause

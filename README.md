@@ -9,7 +9,7 @@
 - Dynamic directory listing with folder and file distinctions.
 - Clickable, interactive folder/file boxes.
 - Customizable theme system with live switching.
-- Now supports Docker-based local development (Windows/macOS/Linux).
+- Now supports Docker-based local development with both HTTP and HTTPS
 
 ---
 
@@ -52,8 +52,14 @@ chmod +x setup_linux.sh
 ./setup_linux.sh
 ```
 
-### 4. Open in Browser
-Visit: [http://localhost:9000](http://localhost:9000)
+---
+
+## 🌐 Accessing DirectNav
+
+Once the container is running, open one of the following in your browser:
+
+- 🔓 [http://localhost:9000](http://localhost:9000) (mainly for local development, no cert)
+- 🔒 [https://localhost:9443](https://localhost:9443) (self-signed cert, may show a warning)
 
 ---
 

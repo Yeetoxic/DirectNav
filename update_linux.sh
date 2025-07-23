@@ -1,101 +1,108 @@
-#!/bin/bash
-set -e
-shopt -s globstar nullglob
+#!/usr/bin/env bash
+set -euo pipefail
 
+# =========================
+# Config
+# =========================
 TMP_DIR="update_tmp"
-ZIP_FILE="main.zip"
 ZIP_URL="https://github.com/Yeetoxic/DirectNav/archive/refs/heads/main.zip"
+ZIP_FILE="main.zip"
+ROOT_DIR="DirectNav-main"
 LOG_FILE="update_log.txt"
-SELF="$(realpath "$0")"
-DIR="$(dirname "$SELF")"
-NEW_UPDATER="$DIR/update_new.sh"
-POST_SCRIPT="$DIR/run_after_update.sh"
+NEW_UPDATER="update_linux.sh"   # if you ever self-update this file
 
-echo "=== DirectNav Auto-Updater ==="
-cd "$DIR"
+# -------- helper ----------
+log() { echo "$@" | tee -a "$LOG_FILE" >/dev/null; }
+abs_path() { readlink -f "$1"; }
 
-# Cleanup previous run
-rm -rf "$TMP_DIR" "$ZIP_FILE" "$LOG_FILE" "$NEW_UPDATER" "$POST_SCRIPT"
+# Clean last run
+rm -rf "$TMP_DIR" "$ZIP_FILE"
+mkdir -p "$TMP_DIR"
+: > "$LOG_FILE"
 
-# Shut down Docker
+echo "=== DirectNav Auto-Updater (Linux) ==="
+
 echo "Stopping Docker containers..."
 docker compose down || true
 
-# Download and extract
 echo "Downloading latest DirectNav ZIP..."
 curl -L "$ZIP_URL" -o "$ZIP_FILE"
 
 echo "Extracting ZIP..."
-unzip -qq "$ZIP_FILE" -d "$TMP_DIR"
+unzip -q -o "$ZIP_FILE" -d "$TMP_DIR"
 
-SRC="$TMP_DIR/DirectNav-main"
-echo "Update Summary:" > "$LOG_FILE"
-echo "------------------------------" >> "$LOG_FILE"
-
-# Safe file copy function
-copy_file() {
-    local src="$1"
-    local dst="$2"
-    if [ ! -f "$src" ]; then return; fi
-
-    if [ -f "$dst" ]; then
-        if ! cmp -s "$src" "$dst"; then
-            cp "$src" "$dst"
-            echo "[REPLACED] $dst" >> "$LOG_FILE"
-        fi
-    else
-        mkdir -p "$(dirname "$dst")"
-        cp "$src" "$dst"
-        echo "[ADDED] $dst" >> "$LOG_FILE"
-    fi
-}
-
-# Replace safe root-level files
-for file in README.md docker-compose.yml setup_linux.sh setup_windows.bat update_windows.bat; do
-    copy_file "$SRC/$file" "$DIR/$file"
-done
-
-# Save updater for delayed replacement
-cp "$SRC/update_linux.sh" "$NEW_UPDATER"
-echo "[REPLACED] update_linux.sh" >> "$LOG_FILE"
-
-# Copy docker/
-echo "Updating docker/..."
-for file in "$SRC/docker"/**/*; do
-    [ -f "$file" ] || continue
-    rel="${file#$SRC/}"
-    copy_file "$file" "$DIR/$rel"
-done
-
-# Copy app/index.php and app/zDirectNav/
-echo "Updating app/zDirectNav/..."
-copy_file "$SRC/app/index.php" "$DIR/app/index.php"
-
-for file in "$SRC/app/zDirectNav"/**/*; do
-    [ -f "$file" ] || continue
-    rel="${file#$SRC/}"
-    copy_file "$file" "$DIR/$rel"
-done
-
-# Show summary
-echo "------------------------------"
-cat "$LOG_FILE"
-echo "------------------------------"
-echo
-read -rp "Press ENTER to run setup and finalize update..."
-
-# Write the post-run shell script
-cat > "$POST_SCRIPT" <<EOF
-#!/bin/bash
-sleep 1
-bash "$DIR/setup_linux.sh" &
-sleep 2
-if [ -f "$NEW_UPDATER" ]; then
-    mv "$NEW_UPDATER" "$SELF"
+ROOT="$TMP_DIR/$ROOT_DIR"
+if [[ ! -d "$ROOT/app" ]]; then
+  echo "[ERROR] Bad ROOT path: $ROOT" | tee -a "$LOG_FILE"
+  ls -la "$TMP_DIR"
+  exit 1
 fi
-rm -rf "$DIR/$TMP_DIR" "$DIR/$ZIP_FILE" "$DIR/$POST_SCRIPT"
-EOF
 
-chmod +x "$POST_SCRIPT"
-"$POST_SCRIPT" &
-exit 0
+log "Update Summary:"
+log "------------------------------"
+
+# ---------------- 1) Mirror everything EXCEPT app/ ----------------
+echo "Mirroring core files (excluding app/)..."
+# rsync will copy everything but skip app/*
+# Also skip updating this updater while it's running (optional)
+rsync -a --delete \
+  --exclude "app/" \
+  --exclude "$NEW_UPDATER" \
+  "$ROOT/" "./" >/dev/null
+
+# If updater changed, copy it aside (optional)
+if [[ -f "$ROOT/$NEW_UPDATER" ]]; then
+  cp -f "$ROOT/$NEW_UPDATER" "${NEW_UPDATER}.new"
+  log "[REPLACED] $NEW_UPDATER"
+fi
+
+# ---------------- 2) Copy ONLY repo app/ files ----------------
+echo "Updating app/ (repo files only)..."
+
+while IFS= read -r -d '' src; do
+  rel="${src#$ROOT/}"                       # relative path under repo root
+  dst="./$rel"
+  dst_dir="$(dirname "$dst")"
+
+  if [[ ! -f "$src" ]]; then
+    log "[MISS] $src"
+    continue
+  fi
+
+  if [[ ! -d "$dst_dir" ]]; then
+    mkdir -p "$dst_dir"
+  fi
+
+  if [[ -f "$dst" ]]; then
+    if cmp -s "$src" "$dst"; then
+      # unchanged
+      :
+    else
+      cp -f "$src" "$dst"
+      log "[REPLACED] $rel"
+    fi
+  else
+    cp -f "$src" "$dst"
+    log "[ADDED] $rel"
+  fi
+done < <(find "$ROOT/app" -type f -print0)
+
+log "------------------------------"
+cat "$LOG_FILE"
+log "------------------------------"
+
+echo
+read -rp "Press ENTER to run setup and finalize update..." _
+
+# Run your setup afterwards (async)
+( ./setup_linux.sh & ) >/dev/null 2>&1 || true
+
+# Optional: if new updater exists, swap it in
+if [[ -f "${NEW_UPDATER}.new" ]]; then
+  mv -f "${NEW_UPDATER}.new" "$NEW_UPDATER"
+fi
+
+# Cleanup
+rm -rf "$TMP_DIR" "$ZIP_FILE"
+
+echo "Done!"

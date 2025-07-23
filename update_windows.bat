@@ -7,8 +7,8 @@ setlocal EnableDelayedExpansion
 set "TMP_DIR=update_tmp"
 set "ZIP_URL=https://github.com/Yeetoxic/DirectNav/archive/refs/heads/main.zip"
 set "ZIP_FILE=main.zip"
+set "ROOT_DIR=DirectNav-main"
 set "LOG_FILE=update_log.txt"
-set "SELF=%~f0"
 set "NEW_UPDATER=update_new.bat"
 set "VBS_SCRIPT=run_after_update.vbs"
 
@@ -33,7 +33,7 @@ if not exist "%ZIP_FILE%" (
 echo Extracting ZIP...
 powershell -Command "Expand-Archive -Path '%ZIP_FILE%' -DestinationPath '%TMP_DIR%' -Force"
 
-set "ROOT=%TMP_DIR%\DirectNav-main"
+set "ROOT=%TMP_DIR%\%ROOT_DIR%"
 if not exist "%ROOT%\app" (
     echo [ERROR] Bad ROOT path: %ROOT%
     dir /b "%TMP_DIR%"
@@ -44,57 +44,32 @@ if not exist "%ROOT%\app" (
 echo Update Summary: > "%LOG_FILE%"
 echo ------------------------------ >> "%LOG_FILE%"
 
-:: ---------------- Top-level files (exclude self) ----------------
-for %%F in (
-    README.md
-    docker-compose.yml
-    setup_windows.bat
-    setup_linux.sh
-    update_linux.sh
-    update_windows.bat
-) do (
-    if /i not "%%F"=="update_windows.bat" (
-        call :copyFile "%ROOT%\%%F" "%%F"
-    ) else (
-        copy /Y "%ROOT%\%%F" "%NEW_UPDATER%" >nul
-        echo [REPLACED] update_windows.bat >> "%LOG_FILE%"
-    )
+:: =========================
+:: 1) Mirror everything EXCEPT app/
+:: =========================
+echo Mirroring core files (excluding app/ user area)...
+set "ROBOLOG=%TMP_DIR%\robocore.log"
+robocopy "%ROOT%" "%CD%" /E /R:0 /W:0 /NP /NS /NC /NFL /NDL ^
+  /XD "%ROOT%\app" ^
+  /XF update_windows.bat "%ROOT%\update_windows.bat" ^
+  /LOG:"%ROBOLOG%" >nul
+
+:: If updater changed, stash it
+if exist "%ROOT%\update_windows.bat" (
+  copy /Y "%ROOT%\update_windows.bat" "%NEW_UPDATER%" >nul
+  echo [REPLACED] update_windows.bat >> "%LOG_FILE%"
 )
 
-:: ---------------- docker folder ----------------
-echo Updating docker/...
-set "BASE=%ROOT%\docker\"
-if exist "%BASE%" (
-    for /R "%BASE%" %%F in (*) do (
-        set "abs=%%~fF"
-        set "rel=!abs:%BASE%=!"
-        if "!rel:~0,1!"=="\" set "rel=!rel:~1!"
-        call :copyFile "%%~fF" "docker\!rel!"
-    )
-) else (
-    echo [WARN] Missing folder: %ROOT%\docker >> "%LOG_FILE%"
-)
-
-:: ---------------- index.php ----------------
-echo Updating app/index.php...
-if exist "%ROOT%\app\index.php" (
-    call :copyFile "%ROOT%\app\index.php" "app\index.php"
-) else (
-    echo [WARN] Missing: %ROOT%\app\index.php >> "%LOG_FILE%"
-)
-
-:: ---------------- zDirectNav folder ----------------
-echo Updating app/zDirectNav/...
-set "BASE=%ROOT%\app\zDirectNav\"
-if exist "%BASE%" (
-    for /R "%BASE%" %%F in (*) do (
-        set "abs=%%~fF"
-        set "rel=!abs:%BASE%=!"
-        if "!rel:~0,1!"=="\" set "rel=!rel:~1!"
-        call :copyFile "%%~fF" "app\zDirectNav\!rel!"
-    )
-) else (
-    echo [WARN] Missing folder: %ROOT%\app\zDirectNav >> "%LOG_FILE%"
+:: =========================
+:: 2) Copy ONLY repo files inside app/ (don't touch extras)
+:: =========================
+echo Updating app/ (repo files only)...
+for /R "%ROOT%\app" %%F in (*) do (
+    set "src=%%~fF"
+    set "rel=!src:%ROOT%\=!"
+    if "!rel:~0,1!"=="\" set "rel=!rel:~1!"
+    set "dstAbs=%CD%\!rel!"
+    call :copyFile "!src!" "!dstAbs!" "!rel!"
 )
 
 echo ------------------------------
@@ -129,7 +104,8 @@ exit /b 0
 :copyFile
 setlocal EnableDelayedExpansion
 set "srcFile=%~1"
-set "dstFile=%~2"
+set "dstAbs=%~2"
+set "dstRel=%~3"
 
 if not exist "%srcFile%" (
     >> "%LOG_FILE%" echo [MISS] %srcFile%
@@ -138,15 +114,15 @@ if not exist "%srcFile%" (
 
 ver >nul 2>&1  :: reset ERRORLEVEL
 
-if exist "%dstFile%" (
-    fc /b "%srcFile%" "%dstFile%" >nul
+if exist "%dstAbs%" (
+    fc /b "%srcFile%" "%dstAbs%" >nul
     if errorlevel 1 (
-        copy /Y "%srcFile%" "%dstFile%" >nul
-        >> "%LOG_FILE%" echo [REPLACED] %dstFile%
+        copy /Y "%srcFile%" "%dstAbs%" >nul
+        >> "%LOG_FILE%" echo [REPLACED] %dstRel%
     )
 ) else (
     if not exist "%~dp2" mkdir "%~dp2" >nul 2>&1
-    copy /Y "%srcFile%" "%dstFile%" >nul
-    >> "%LOG_FILE%" echo [ADDED] %dstFile%
+    copy /Y "%srcFile%" "%dstAbs%" >nul
+    >> "%LOG_FILE%" echo [ADDED] %dstRel%
 )
 endlocal & exit /b 0
